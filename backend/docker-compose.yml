@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: timescale/timescaledb:2.17.2-pg16
+    container_name: car-diagnostics-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: car_diagnostics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d car_diagnostics"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: car-diagnostics-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+    container_name: car-diagnostics-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/car_diagnostics?schema=public
+      REDIS_URL: redis://redis:6379/0
+      JWT_ACCESS_SECRET: replace-with-a-long-access-secret
+      JWT_REFRESH_SECRET: replace-with-a-long-refresh-secret
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 30d
+      MQTT_SERVERS: emqx1:1883,emqx2:1883,emqx3:1883
+      MQTT_CLIENT_ID: diagnostic-backend
+      MQTT_REQUEST_TIMEOUT_MS: 15000
+      SUPPORTED_PID_STALE_HOURS: 24
+      SWAGGER_ENABLED: true
+      AI_PROVIDER: stub
+      AI_MODEL: gpt-4.1-mini
+      AI_BASE_URL: https://api.openai.com/v1
+    ports:
+      - "3000:3000"
+    networks:
+      - default
+      - mqtt-net
+
+networks:
+  mqtt-net:
+    external: true
+    name: mqtt-net
+
+volumes:
+  postgres-data:
+  redis-data:

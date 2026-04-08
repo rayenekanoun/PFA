@@ -1,0 +1,28 @@
+name: emqx-broker
+
+services:
+  emqx:
+    image: emqx/emqx:5.8.7
+    container_name: emqx
+    hostname: ${EMQX_HOSTNAME}
+    restart: unless-stopped
+    environment:
+      EMQX_NODE__NAME: ${EMQX_NODE_NAME}
+      EMQX_NODE__COOKIE: ${EMQX_NODE_COOKIE}
+      EMQX_CLUSTER__DISCOVERY_STRATEGY: static
+      EMQX_CLUSTER__STATIC__SEEDS: ${EMQX_CLUSTER_STATIC_SEEDS}
+      EMQX_DASHBOARD__DEFAULT_USERNAME: ${EMQX_DASHBOARD_USER}
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASS}
+      EMQX_LOG__CONSOLE_HANDLER__LEVEL: info
+    ports:
+      - "${EMQX_MQTT_PORT:-1883}:1883"
+      - "${EMQX_DASHBOARD_PORT:-18083}:18083"
+      - "${EMQX_CLUSTER_EPMP_PORT:-4370}:4370"
+      - "${EMQX_CLUSTER_RPC_PORT:-5369}:5369"
+    volumes:
+      - emqx-data:/opt/emqx/data
+      - emqx-log:/opt/emqx/log
+
+volumes:
+  emqx-data:
+  emqx-log:

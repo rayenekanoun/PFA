@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBD2 PID Reference — Complete Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e13;
+    --surface: #111620;
+    --surface2: #181f2e;
+    --border: #1e2a3a;
+    --border2: #243040;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff6b;
+    --accent4: #ffcc00;
+    --text: #e8eef5;
+    --muted: #7a8fa8;
+    --dim: #3a4a5e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+  header {
+    padding: 48px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    letter-spacing: 0.1em;
+  }
+  .badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+  h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+  h1 span { color: var(--accent); }
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    margin-top: 10px;
+    line-height: 1.6;
+    max-width: 500px;
+  }
+  .stats-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 32px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+  }
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 380px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 13px;
+    pointer-events: none;
+  }
+  input[type="text"] {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 10px 14px 10px 38px;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--dim); }
+  .filter-tabs {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .tab {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tab:hover { border-color: var(--border2); color: var(--text); }
+  .mode-section { margin-bottom: 48px; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .mode-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .mode-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+  }
+  .mode-title { font-size: 17px; font-weight: 600; }
+  .mode-desc {
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: auto;
+    max-width: 380px;
+    text-align: right;
+    line-height: 1.5;
+  }
+  .count-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    background: rgba(255,255,255,0.06);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .section-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .pid-table, .at-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .pid-table thead th, .at-table thead th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .pid-table tbody tr, .at-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .pid-table tbody tr:hover, .at-table tbody tr:hover { background: var(--surface2); }
+  .pid-table tbody tr.mandatory td:first-child { position: relative; }
+  .pid-table tbody tr.mandatory td:first-child::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent3);
+  }
+  .pid-table td, .at-table td { padding: 10px 14px; vertical-align: middle; }
+  .pid-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pid-name { font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+  .pid-desc { color: var(--muted); font-size: 12px; line-height: 1.5; max-width: 360px; }
+  .pid-formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent4);
+    background: rgba(255,204,0,0.08);
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .pid-unit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    background: rgba(255,107,53,0.08);
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .mandatory-tag {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(127,255,107,0.12);
+    color: var(--accent3);
+    border: 1px solid rgba(127,255,107,0.25);
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .optional-tag {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(122,143,168,0.1);
+    color: var(--muted);
+    border: 1px solid rgba(122,143,168,0.2);
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .at-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #a0c4ff;
+    white-space: nowrap;
+  }
+  .cat-tag {
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .warning-box {
+    background: rgba(255,107,53,0.07);
+    border: 1px solid rgba(255,107,53,0.25);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .warning-text { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .warning-text strong { color: var(--accent2); }
+  .legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .legend-line { width: 12px; height: 3px; background: var(--accent3); border-radius: 2px; }
+  .no-results {
+    text-align: center;
+    padding: 48px;
+    color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    display: none;
+  }
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 0;
+    margin-top: 48px;
+    text-align: center;
+    color: var(--dim);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  @media (max-width: 768px) {
+    .mode-desc { display: none; }
+    .pid-table td:nth-child(4), .pid-table th:nth-child(4) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge">OBD2 PROTOCOL REFERENCE v2.0</div>
+    <h1>Complete <span>OBD2</span><br>PID Reference</h1>
+    <p class="subtitle">All standard PIDs, modes, ELM327 AT commands, formulas and units. Built for ESP32 + Raspberry Pi projects.</p>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-num" id="stat-pids">62</div><div class="stat-label">Mode 01 PIDs</div></div>
+      <div class="stat"><div class="stat-num">10</div><div class="stat-label">OBD2 Modes</div></div>
+      <div class="stat"><div class="stat-num">31</div><div class="stat-label">AT Commands</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--accent3)">8</div><div class="stat-label">Mandatory PIDs</div></div>
+    </div>
+  </header>
+
+  <div class="warning-box">
+    <span style="font-size:18px;flex-shrink:0">⚠️</span>
+    <div class="warning-text">
+      <strong>Not all cars support all PIDs.</strong> Always query support bitmasks first
+      (<code style="color:var(--accent);font-family:monospace">0100</code>, <code style="color:var(--accent);font-family:monospace">0120</code>, <code style="color:var(--accent);font-family:monospace">0140</code>…) before polling.
+      Mandatory PIDs <span style="color:var(--accent3)">●</span> are guaranteed on all OBD2-compliant vehicles (post-1996 US / post-2001 EU).
+      <strong>Mode 04 permanently clears fault codes</strong> — use with caution.
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-line"></div> Green bar = Mandatory on all OBD2 cars</div>
+    <div class="legend-item"><span class="optional-tag">OPTIONAL</span> Manufacturer dependent</div>
+    <div class="legend-item"><span style="color:var(--accent4);font-family:monospace;font-size:11px">A B C D</span> = response bytes from ELM327</div>
+  </div>
+
+  <div class="controls">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="search" placeholder="Search PID, name, description..." oninput="filterAll()">
+    </div>
+    <div class="filter-tabs" id="tabs">
+      <button class="tab" id="tab-all" onclick="setTab('all')" style="background:rgba(0,212,255,0.15);border-color:rgba(0,212,255,0.6);color:#00d4ff">All</button>
+      <button class="tab" id="tab-01" onclick="setTab('01')">Mode 01</button>
+      <button class="tab" id="tab-02" onclick="setTab('02')">Mode 02</button>
+      <button class="tab" id="tab-03" onclick="setTab('03')">Mode 03</button>
+      <button class="tab" id="tab-04" onclick="setTab('04')">Mode 04</button>
+      <button class="tab" id="tab-05" onclick="setTab('05')">Mode 05</button>
+      <button class="tab" id="tab-06" onclick="setTab('06')">Mode 06</button>
+      <button class="tab" id="tab-07" onclick="setTab('07')">Mode 07</button>
+      <button class="tab" id="tab-09" onclick="setTab('09')">Mode 09</button>
+      <button class="tab" id="tab-0A" onclick="setTab('0A')">Mode 0A</button>
+      <button class="tab" id="tab-AT" onclick="setTab('AT')">AT Cmds</button>
+    </div>
+  </div>
+
+  <div id="content"></div>
+  <div class="no-results" id="no-results">No results match your search.</div>
+</div>
+
+<footer>
+  OBD2 ISO 15031-5 / SAE J1979 Standard &nbsp;·&nbsp; ELM327 AT Command Set &nbsp;·&nbsp; ESP32 + Raspberry Pi OBD Project Reference
+</footer>
+
+<script>
+const MODES = [
+  { id:'01', color:'#00d4ff', title:'Mode 01 — Current Live Data', desc:'Real-time sensor values from the ECU. Most used mode.', pids:[
+    {code:'0100',name:'Supported PIDs 01–20',desc:'Bitmask of which PIDs 01–20 this ECU supports. Always query this first before polling.',formula:'32-bit bitmask',unit:'—',m:false},
+    {code:'0101',name:'Monitor status (MIL)',desc:'Check Engine Light status, number of DTCs stored, and readiness monitor states for each emission system.',formula:'See SAE J1979',unit:'—',m:true},
+    {code:'0102',name:'Freeze frame DTC',desc:'The DTC that triggered the current freeze frame snapshot.',formula:'—',unit:'—',m:false},
+    {code:'0103',name:'Fuel system status',desc:'Open or closed loop status for fuel system on each bank. Closed = ECU using O2 sensor feedback.',formula:'Bitmask',unit:'—',m:false},
+    {code:'0104',name:'Engine load',desc:'Calculated engine load as % of peak available torque. High values under light throttle suggest a problem.',formula:'A / 2.55',unit:'%',m:true},
+    {code:'0105',name:'Coolant temperature',desc:'Engine coolant temperature. Essential for warm-up diagnostics and fan control monitoring.',formula:'A − 40',unit:'°C',m:true},
+    {code:'0106',name:'Short-term fuel trim B1',desc:'Short-term fuel correction for bank 1. +10% = adding fuel (lean). −10% = reducing fuel (rich).',formula:'A/1.28 − 100',unit:'%',m:false},
+    {code:'0107',name:'Long-term fuel trim B1',desc:'Learned long-term correction for bank 1. Large values indicate a persistent fuel delivery issue.',formula:'A/1.28 − 100',unit:'%',m:false},
+    {code:'0108',name:'Short-term fuel trim B2',desc:'Short-term fuel correction for bank 2 (V-engines only).',formula:'A/1.28 − 100',unit:'%',m:false},
+    {code:'0109',name:'Long-term fuel trim B2',desc:'Learned correction for bank 2.',formula:'A/1.28 − 100',unit:'%',m:false},
+    {code:'010A',name:'Fuel pressure',desc:'Fuel rail or fuel line pressure at the injectors.',formula:'A × 3',unit:'kPa',m:false},
+    {code:'010B',name:'Intake manifold pressure',desc:'Absolute pressure in intake manifold (MAP sensor). Used with MAF for load calculation.',formula:'A',unit:'kPa',m:false},
+    {code:'010C',name:'Engine RPM',desc:'Engine rotational speed. Fundamental for tachometer and rev-matching logic.',formula:'(256A + B) / 4',unit:'RPM',m:true},
+    {code:'010D',name:'Vehicle speed',desc:'Vehicle speed reported by the ECU from transmission or wheel speed sensors.',formula:'A',unit:'km/h',m:true},
+    {code:'010E',name:'Timing advance',desc:'Spark ignition timing advance relative to TDC (top dead center) on cylinder 1.',formula:'A/2 − 64',unit:'°',m:false},
+    {code:'010F',name:'Intake air temperature',desc:'Air temperature at the intake manifold. Affects fuel injection calculation.',formula:'A − 40',unit:'°C',m:false},
+    {code:'0110',name:'MAF air flow rate',desc:'Mass air flow sensor — grams of air entering engine per second. Key for fuel calculation.',formula:'(256A + B) / 100',unit:'g/s',m:false},
+    {code:'0111',name:'Throttle position',desc:'Absolute throttle plate position as reported by the TPS sensor.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'0112',name:'Secondary air status',desc:'Status of secondary air injection system (emissions control).',formula:'Bitmask',unit:'—',m:false},
+    {code:'0113',name:'O2 sensors present',desc:'Bitmask indicating which O2 sensor positions exist on this vehicle.',formula:'Bitmask',unit:'—',m:false},
+    {code:'0114',name:'O2 sensor B1S1',desc:'Pre-catalytic oxygen sensor bank 1. Voltage and short-term trim.',formula:'A/200, (B/1.28−100)',unit:'V, %',m:false},
+    {code:'0115',name:'O2 sensor B1S2',desc:'Post-catalytic O2 sensor bank 1. Used to check catalyst efficiency.',formula:'A/200, (B/1.28−100)',unit:'V, %',m:false},
+    {code:'0116',name:'O2 sensor B1S3',desc:'Bank 1 sensor 3.',formula:'A/200, (B/1.28−100)',unit:'V, %',m:false},
+    {code:'0117',name:'O2 sensor B1S4',desc:'Bank 1 sensor 4.',formula:'A/200, (B/1.28−100)',unit:'V, %',m:false},
+    {code:'0118',name:'O2 sensor B2S1',desc:'Pre-cat O2 bank 2 (V-engines, passenger side).',formula:'A/200, (B/1.28−100)',unit:'V, %',m:false},
+    {code:'0119',name:'O2 sensor B2S2',desc:'Post-cat O2 sensor bank 2.',formula:'A/200, (B/1.28−100)',unit:'V, %',m:false},
+    {code:'011C',name:'OBD standard',desc:'Which OBD standard this vehicle was designed to comply with (OBD-II, EOBD, OBD-I, etc.).',formula:'Enum',unit:'—',m:false},
+    {code:'011F',name:'Run time since engine start',desc:'How long the engine has been running since last cold start.',formula:'256A + B',unit:'s',m:false},
+    {code:'0120',name:'Supported PIDs 21–40',desc:'Bitmask of supported PIDs in the 21–40 range.',formula:'Bitmask',unit:'—',m:false},
+    {code:'0121',name:'Distance with MIL on',desc:'Cumulative distance driven with Check Engine Light illuminated.',formula:'256A + B',unit:'km',m:false},
+    {code:'0122',name:'Fuel rail pressure (relative)',desc:'Fuel rail pressure relative to intake manifold vacuum.',formula:'(256A+B) × 0.079',unit:'kPa',m:false},
+    {code:'0123',name:'Fuel rail pressure (direct)',desc:'Absolute fuel rail pressure (diesel and GDI gasoline engines).',formula:'(256A+B) × 10',unit:'kPa',m:false},
+    {code:'012C',name:'EGR commanded',desc:'Commanded position of Exhaust Gas Recirculation valve.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'012D',name:'EGR error',desc:'Difference between commanded and actual EGR valve position.',formula:'A/1.28 − 100',unit:'%',m:false},
+    {code:'012E',name:'Evap purge commanded',desc:'Duty cycle of evaporative emission purge valve.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'012F',name:'Fuel tank level',desc:'Remaining fuel in tank as a percentage of full capacity.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'0130',name:'Warm-ups since codes cleared',desc:'Number of complete warm-up cycles since DTCs were last cleared.',formula:'A',unit:'count',m:false},
+    {code:'0131',name:'Distance since codes cleared',desc:'Total distance driven since DTCs were last cleared.',formula:'256A + B',unit:'km',m:false},
+    {code:'0133',name:'Barometric pressure',desc:'Absolute atmospheric pressure from baro sensor or ECU model.',formula:'A',unit:'kPa',m:false},
+    {code:'013C',name:'Catalyst temp B1S1',desc:'Temperature of catalytic converter bank 1 inlet sensor.',formula:'(256A+B)/10 − 40',unit:'°C',m:false},
+    {code:'013D',name:'Catalyst temp B2S1',desc:'Catalyst temperature bank 2 inlet.',formula:'(256A+B)/10 − 40',unit:'°C',m:false},
+    {code:'013E',name:'Catalyst temp B1S2',desc:'Catalyst temperature bank 1 outlet sensor.',formula:'(256A+B)/10 − 40',unit:'°C',m:false},
+    {code:'013F',name:'Catalyst temp B2S2',desc:'Catalyst temperature bank 2 outlet.',formula:'(256A+B)/10 − 40',unit:'°C',m:false},
+    {code:'0140',name:'Supported PIDs 41–60',desc:'Bitmask of supported PIDs in the 41–60 range.',formula:'Bitmask',unit:'—',m:false},
+    {code:'0142',name:'Control module voltage',desc:'Battery/supply voltage as measured by the ECU control module.',formula:'(256A+B) / 1000',unit:'V',m:false},
+    {code:'0143',name:'Absolute engine load',desc:'Normalized air mass per intake stroke as a percentage of peak.',formula:'(256A+B) / 2.55',unit:'%',m:false},
+    {code:'0144',name:'Commanded air-fuel ratio',desc:'Target lambda (air-fuel ratio) commanded by the ECU.',formula:'(256A+B) / 32768',unit:'λ',m:false},
+    {code:'0145',name:'Relative throttle position',desc:'Throttle position relative to the learned closed position.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'0146',name:'Ambient air temperature',desc:'Outside air temperature from external ambient sensor.',formula:'A − 40',unit:'°C',m:false},
+    {code:'0147',name:'Absolute throttle position B',desc:'Second throttle sensor for drive-by-wire dual-sensor systems.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'014C',name:'Commanded throttle actuator',desc:'Duty cycle commanded to the electronic throttle actuator motor.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'014D',name:'Time with MIL on',desc:'Cumulative time the Check Engine Light has been illuminated.',formula:'256A + B',unit:'min',m:false},
+    {code:'014E',name:'Time since codes cleared',desc:'Total time elapsed since trouble codes were last cleared.',formula:'256A + B',unit:'min',m:false},
+    {code:'0151',name:'Fuel type',desc:'Type of fuel in use: gasoline, diesel, ethanol, LPG, CNG, hybrid, etc.',formula:'Enum',unit:'—',m:false},
+    {code:'0152',name:'Ethanol fuel %',desc:'Percentage of ethanol in the fuel blend (flex-fuel vehicles).',formula:'A / 2.55',unit:'%',m:false},
+    {code:'015A',name:'Relative accelerator pedal',desc:'Relative position of the accelerator pedal sensor.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'015B',name:'Hybrid battery pack life',desc:'State of health of the hybrid or EV traction battery pack.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'015C',name:'Engine oil temperature',desc:'Oil sump temperature. Critical for oil viscosity and engine wear analysis.',formula:'A − 40',unit:'°C',m:false},
+    {code:'015D',name:'Fuel injection timing',desc:'Fuel injection timing angle relative to TDC.',formula:'(256A+B)/128 − 210',unit:'°',m:false},
+    {code:'015E',name:'Engine fuel rate',desc:'Volume of fuel consumed per hour at current operating point.',formula:'(256A+B) / 20',unit:'L/h',m:false},
+    {code:'0160',name:'Supported PIDs 61–80',desc:'Bitmask of supported PIDs in the 61–80 range.',formula:'Bitmask',unit:'—',m:false},
+    {code:'0167',name:'Engine coolant temp (sensor 2)',desc:'Coolant temperature from a secondary sensor.',formula:'(256A+B)/128 − 40',unit:'°C',m:false},
+    {code:'0168',name:'Fuel rail absolute pressure',desc:'Absolute fuel rail pressure (3-byte high-res version).',formula:'(A×65536+B×256+C)×0.079',unit:'kPa',m:false},
+  ]},
+  { id:'02', color:'#ff6b35', title:'Mode 02 — Freeze Frame Data', desc:'Sensor snapshot captured at the moment a fault was triggered.', pids:[
+    {code:'0200',name:'Freeze frame supported PIDs',desc:'Bitmask of freeze frame PIDs available for the stored DTC.',formula:'Bitmask',unit:'—',m:false},
+    {code:'0201',name:'Freeze frame DTC',desc:'The diagnostic trouble code that triggered this freeze frame record.',formula:'—',unit:'—',m:false},
+    {code:'0204',name:'Freeze: Engine load',desc:'Engine load percentage at time of fault.',formula:'A / 2.55',unit:'%',m:false},
+    {code:'0205',name:'Freeze: Coolant temperature',desc:'Coolant temp at time of fault.',formula:'A − 40',unit:'°C',m:false},
+    {code:'020C',name:'Freeze: Engine RPM',desc:'RPM at time of fault.',formula:'(256A+B)/4',unit:'RPM',m:false},
+    {code:'020D',name:'Freeze: Vehicle speed',desc:'Speed at time of fault.',formula:'A',unit:'km/h',m:false},
+    {code:'020F',name:'Freeze: Intake air temp',desc:'Intake air temperature at fault moment.',formula:'A − 40',unit:'°C',m:false},
+    {code:'0210',name:'Freeze: MAF air flow',desc:'Mass air flow at fault moment.',formula:'(256A+B)/100',unit:'g/s',m:false},
+    {code:'0211',name:'Freeze: Throttle position',desc:'Throttle position at fault moment.',formula:'A / 2.55',unit:'%',m:false},
+  ]},
+  { id:'03', color:'#e855ff', title:'Mode 03 — Stored Fault Codes (DTCs)', desc:'Read all confirmed diagnostic trouble codes stored in the ECU.', pids:[
+    {code:'03',name:'Request stored DTCs',desc:'Returns all confirmed DTCs. Each code is 2 bytes. Format: Pxxxx=Powertrain, Bxxxx=Body, Cxxxx=Chassis, Uxxxx=Network. P0xxx = SAE standard codes. P1xxx = OEM proprietary.',formula:'—',unit:'DTC list',m:true},
+  ]},
+  { id:'04', color:'#ffcc00', title:'Mode 04 — Clear Fault Codes ⚠️', desc:'Permanently clears all DTCs and resets readiness monitors. Use with caution.', pids:[
+    {code:'04',name:'Clear DTCs & reset monitors',desc:'⚠️ Permanently clears all stored and pending DTCs, resets all readiness monitors to "not ready", and erases freeze frame data. After this, the engine must complete a full drive cycle for monitors to re-run. Do not use right before an emissions inspection.',formula:'—',unit:'—',m:true},
+  ]},
+  { id:'05', color:'#7fff6b', title:'Mode 05 — O2 Sensor Test Results', desc:'Lambda sensor test data captured outside normal closed-loop operation.', pids:[
+    {code:'0500',name:'O2 test supported',desc:'Bitmask of which O2 sensor tests are available on this vehicle.',formula:'Bitmask',unit:'—',m:false},
+    {code:'0501',name:'Rich-to-lean threshold voltage',desc:'O2 sensor voltage threshold for rich-to-lean transition test.',formula:'A / 200',unit:'V',m:false},
+    {code:'0502',name:'Lean-to-rich threshold voltage',desc:'O2 sensor threshold for lean-to-rich transition.',formula:'A / 200',unit:'V',m:false},
+    {code:'0503',name:'Low sensor voltage for test',desc:'Low voltage threshold used in O2 sensor functional test.',formula:'A / 200',unit:'V',m:false},
+    {code:'0504',name:'High sensor voltage for test',desc:'High voltage threshold in O2 test.',formula:'A / 200',unit:'V',m:false},
+    {code:'0505',name:'Rich-to-lean response time',desc:'Milliseconds for O2 sensor to respond from rich to lean.',formula:'256A + B',unit:'ms',m:false},
+    {code:'0506',name:'Lean-to-rich response time',desc:'Milliseconds for O2 sensor to respond from lean to rich.',formula:'256A + B',unit:'ms',m:false},
+    {code:'0507',name:'Minimum voltage during test',desc:'Lowest O2 sensor voltage measured during the test cycle.',formula:'A / 200',unit:'V',m:false},
+    {code:'0508',name:'Maximum voltage during test',desc:'Highest O2 sensor voltage measured during test.',formula:'A / 200',unit:'V',m:false},
+    {code:'0509',name:'Time between transitions',desc:'Time between O2 sensor voltage transitions.',formula:'256A + B',unit:'ms',m:false},
+  ]},
+  { id:'06', color:'#ff9f6b', title:'Mode 06 — On-Board Monitoring Tests', desc:'ECU self-test results for emission-related components.', pids:[
+    {code:'06',name:'Request on-board test results',desc:'Returns pass/fail/limit results for on-board diagnostic tests. Each entry has a test ID, component ID, min limit, max limit, and actual value. Useful to catch borderline components before a DTC sets.',formula:'—',unit:'Varies',m:false},
+    {code:'0600',name:'Supported test IDs',desc:'Bitmask of which on-board monitor test IDs are available.',formula:'Bitmask',unit:'—',m:false},
+    {code:'0601',name:'O2 sensor monitor B1S1',desc:'On-board test result for bank 1 upstream O2 sensor.',formula:'See SAE J1979',unit:'Varies',m:false},
+    {code:'0602',name:'O2 sensor monitor B1S2',desc:'On-board test result for bank 1 downstream O2 sensor.',formula:'See SAE J1979',unit:'Varies',m:false},
+    {code:'0621',name:'Catalyst monitor B1',desc:'Catalyst efficiency monitor test result for bank 1.',formula:'See SAE J1979',unit:'—',m:false},
+  ]},
+  { id:'07', color:'#55b8ff', title:'Mode 07 — Pending Fault Codes', desc:'DTCs detected this drive cycle but not yet confirmed.', pids:[
+    {code:'07',name:'Request pending DTCs',desc:'Returns fault codes detected during the current or last drive cycle but not yet confirmed (need 2+ cycles). Useful to catch intermittent faults before the Check Engine Light illuminates.',formula:'—',unit:'DTC list',m:false},
+  ]},
+  { id:'09', color:'#55b8ff', title:'Mode 09 — Vehicle Information', desc:'Static identity data: VIN, ECU name, calibration IDs.', pids:[
+    {code:'0900',name:'Supported info PIDs',desc:'Bitmask of which Mode 09 information PIDs are supported.',formula:'Bitmask',unit:'—',m:false},
+    {code:'0902',name:'Vehicle Identification Number (VIN)',desc:'17-character VIN encoded as ASCII bytes. Essential for identifying the vehicle in fleet or logging systems.',formula:'ASCII bytes',unit:'17 chars',m:true},
+    {code:'0904',name:'Calibration ID',desc:'ECU software calibration identifier string.',formula:'ASCII',unit:'string',m:false},
+    {code:'0906',name:'Calibration verification number',desc:'CVN checksum to verify ECU software has not been tampered with.',formula:'Hex',unit:'—',m:false},
+    {code:'090A',name:'ECU name',desc:'Name of the ECU that responded — useful when multiple ECUs answer on the CAN bus.',formula:'ASCII',unit:'string',m:false},
+    {code:'090D',name:'Engine serial number',desc:'Engine serial number string (not supported on all vehicles).',formula:'ASCII',unit:'string',m:false},
+  ]},
+  { id:'0A', color:'#ff5599', title:'Mode 0A — Permanent Fault Codes', desc:'DTCs that survive Mode 04 clear — only fixed by repairing the fault.', pids:[
+    {code:'0A',name:'Request permanent DTCs',desc:'Returns permanent diagnostic trouble codes. These CANNOT be cleared with Mode 04. They persist until: (1) the fault is repaired, AND (2) the vehicle completes a successful emissions monitor drive cycle. Introduced to prevent inspection fraud.',formula:'—',unit:'DTC list',m:false},
+  ]},
+];
+
+const AT_CMDS = [
+  {code:'ATZ',cat:'Reset',cc:'#e855ff',desc:'Full chip reset. Restores all defaults. Always send this first after connecting to ELM327.'},
+  {code:'ATI',cat:'Info',cc:'#7fff6b',desc:'Print ELM327 firmware version string (e.g. "ELM327 v2.2").'},
+  {code:'ATRV',cat:'Info',cc:'#7fff6b',desc:'Read battery/supply voltage. Returns current 12V system voltage (e.g. "12.4V").'},
+  {code:'ATDP',cat:'Protocol',cc:'#00d4ff',desc:'Display current OBD protocol name (e.g. "ISO 15765-4 CAN (11 bit ID, 500 kbaud)").'},
+  {code:'ATDPN',cat:'Protocol',cc:'#00d4ff',desc:'Display current protocol as a single hex digit number only.'},
+  {code:'ATSP0',cat:'Protocol',cc:'#00d4ff',desc:'Auto-detect protocol. Tries all known protocols and remembers which worked. Best for unknown vehicles.'},
+  {code:'ATSP1',cat:'Protocol',cc:'#00d4ff',desc:'Force SAE J1850 PWM protocol (older Ford vehicles).'},
+  {code:'ATSP2',cat:'Protocol',cc:'#00d4ff',desc:'Force SAE J1850 VPW protocol (older GM vehicles).'},
+  {code:'ATSP3',cat:'Protocol',cc:'#00d4ff',desc:'Force ISO 9141-2 protocol (older European/Asian vehicles, slow init).'},
+  {code:'ATSP4',cat:'Protocol',cc:'#00d4ff',desc:'Force ISO 14230-4 KWP2000 (5 baud init).'},
+  {code:'ATSP5',cat:'Protocol',cc:'#00d4ff',desc:'Force ISO 14230-4 KWP2000 (fast init). Good for many 2000–2008 European cars.'},
+  {code:'ATSP6',cat:'Protocol',cc:'#00d4ff',desc:'Force ISO 15765-4 CAN (11-bit ID, 500 kbaud). Most common for modern cars (2008+).'},
+  {code:'ATSP7',cat:'Protocol',cc:'#00d4ff',desc:'Force ISO 15765-4 CAN (29-bit ID, 500 kbaud). Some European vehicles.'},
+  {code:'ATSP8',cat:'Protocol',cc:'#00d4ff',desc:'Force ISO 15765-4 CAN (11-bit ID, 250 kbaud). Some trucks and SUVs.'},
+  {code:'ATSP9',cat:'Protocol',cc:'#00d4ff',desc:'Force ISO 15765-4 CAN (29-bit ID, 250 kbaud).'},
+  {code:'ATE0 / ATE1',cat:'Output',cc:'#ff9f6b',desc:'Echo off / on. Disable echo (ATE0) to get cleaner responses — recommended for code parsing.'},
+  {code:'ATL0 / ATL1',cat:'Output',cc:'#ff9f6b',desc:'Linefeeds off / on. Disable (ATL0) for easier string splitting in code.'},
+  {code:'ATS0 / ATS1',cat:'Output',cc:'#ff9f6b',desc:'Spaces in response hex off / on. Off (ATS0) makes hex parsing simpler.'},
+  {code:'ATH0 / ATH1',cat:'Output',cc:'#ff9f6b',desc:'Headers off / on. Enable (ATH1) to see which ECU responded — needed for multi-ECU vehicles.'},
+  {code:'ATMA',cat:'Monitor',cc:'#ffcc00',desc:'Monitor all CAN bus traffic. Dumps every message as it appears. Press any key to stop.'},
+  {code:'ATMT XX',cat:'Monitor',cc:'#ffcc00',desc:'Monitor for transmissions to address XX only.'},
+  {code:'ATAR',cat:'Monitor',cc:'#ffcc00',desc:'Automatically receive all. Monitors traffic using last-used address as filter.'},
+  {code:'ATAT0',cat:'Timing',cc:'#55b8ff',desc:'Disable adaptive timing — use fixed timeout value set by ATST command.'},
+  {code:'ATAT1',cat:'Timing',cc:'#55b8ff',desc:'Adaptive timing mode 1 (default). Adjusts timeout based on observed ECU response times.'},
+  {code:'ATAT2',cat:'Timing',cc:'#55b8ff',desc:'Aggressive adaptive timing. Faster polling but may miss slow ECU responses.'},
+  {code:'ATST XX',cat:'Timing',cc:'#55b8ff',desc:'Set timeout = XX × 4ms. Default = FF (1020ms). Example: ATST19 = 100ms timeout.'},
+  {code:'ATBD',cat:'Debug',cc:'#a0c4ff',desc:'Buffer dump. Prints raw bytes of the last received message — useful for debugging.'},
+  {code:'ATPC',cat:'Connection',cc:'#ff6b35',desc:'Protocol close. Cleanly terminates the current OBD protocol connection.'},
+  {code:'ATWS',cat:'Reset',cc:'#e855ff',desc:'Warm start. Resets the ELM chip but keeps user-set parameters (faster than ATZ).'},
+  {code:'ATD',cat:'Reset',cc:'#e855ff',desc:'Restore all defaults without a full chip reset.'},
+  {code:'ATIGN',cat:'Info',cc:'#7fff6b',desc:'Read ignition monitor pin state. Returns "ON" or "OFF".'},
+  {code:'ATSS',cat:'Info',cc:'#7fff6b',desc:'Store the current protocol as the default used on power-up.'},
+];
+
+let currentMode = 'all';
+let searchTerm = '';
+
+function buildPIDTable(pids, color) {
+  const rows = pids.map(p => `
+    <tr class="${p.m?'mandatory':''}" data-s="${p.code} ${p.name} ${p.desc}".toLowerCase()>
+      <td><span class="pid-code" style="color:${color}">${p.code}</span></td>
+      <td><div class="pid-name">${p.name}</div><div class="pid-desc">${p.desc}</div></td>
+      <td>${p.m ? '<span class="mandatory-tag">MANDATORY</span>' : '<span class="optional-tag">OPTIONAL</span>'}</td>
+      <td><span class="pid-formula">${p.formula}</span></td>
+      <td><span class="pid-unit">${p.unit}</span></td>
+    </tr>`).join('');
+  return `<div class="section-wrap"><table class="pid-table">
+    <thead><tr><th>Command</th><th>Name &amp; Description</th><th>Support</th><th>Formula (A,B=bytes)</th><th>Unit</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function buildATTable(cmds) {
+  const rows = cmds.map(c => `
+    <tr data-s="${c.code} ${c.cat} ${c.desc}".toLowerCase()>
+      <td><span class="at-code">${c.code}</span></td>
+      <td><span class="cat-tag" style="background:${c.cc}22;color:${c.cc};border:1px solid ${c.cc}44">${c.cat}</span></td>
+      <td class="pid-desc">${c.desc}</td>
+    </tr>`).join('');
+  return `<div class="section-wrap"><table class="at-table">
+    <thead><tr><th>Command</th><th>Category</th><th>Description</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function modeSection(mode, bodyHtml, count) {
+  return `<div class="mode-section">
+    <div class="mode-header">
+      <span class="mode-badge" style="background:${mode.color}18;color:${mode.color};border:1px solid ${mode.color}44">${mode.id}</span>
+      <span class="mode-title">${mode.title}</span>
+      <span class="count-badge">${count} item${count!==1?'s':''}</span>
+      <span class="mode-desc">${mode.desc}</span>
+    </div>
+    ${bodyHtml}
+  </div>`;
+}
+
+function render() {
+  const term = searchTerm.toLowerCase();
+  let html = '';
+  let anyVisible = false;
+
+  if (currentMode !== 'AT') {
+    MODES.forEach(mode => {
+      if (currentMode !== 'all' && currentMode !== mode.id) return;
+      const pids = mode.pids.filter(p =>
+        !term || (p.code + ' ' + p.name + ' ' + p.desc).toLowerCase().includes(term)
+      );
+      if (!pids.length) return;
+      anyVisible = true;
+      html += modeSection(mode, buildPIDTable(pids, mode.color), pids.length);
+    });
+  }
+
+  if (currentMode === 'all' || currentMode === 'AT') {
+    const cmds = AT_CMDS.filter(c =>
+      !term || (c.code + ' ' + c.cat + ' ' + c.desc).toLowerCase().includes(term)
+    );
+    if (cmds.length) {
+      anyVisible = true;
+      html += `<div class="mode-section">
+        <div class="mode-header">
+          <span class="mode-badge" style="background:rgba(160,196,255,0.1);color:#a0c4ff;border:1px solid rgba(160,196,255,0.3)">AT</span>
+          <span class="mode-title">ELM327 AT Commands — Adapter Control</span>
+          <span class="count-badge">${cmds.length} commands</span>
+          <span class="mode-desc">Control the ELM327 chip: protocol, timing, output format.</span>
+        </div>
+        ${buildATTable(cmds)}
+      </div>`;
+    }
+  }
+
+  document.getElementById('content').innerHTML = html;
+  document.getElementById('no-results').style.display = anyVisible ? 'none' : 'block';
+}
+
+function setTab(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.tab').forEach(t => {
+    t.style.background = '';
+    t.style.borderColor = '';
+    t.style.color = '';
+  });
+  const el = document.getElementById('tab-' + mode);
+  if (el) {
+    const color = mode === 'all' ? '#00d4ff' : mode === 'AT' ? '#a0c4ff' :
+      (MODES.find(m => m.id === mode)||{color:'#00d4ff'}).color;
+    el.style.background = color + '22';
+    el.style.borderColor = color + '88';
+    el.style.color = color;
+  }
+  render();
+}
+
+function filterAll() {
+  searchTerm = document.getElementById('search').value;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
