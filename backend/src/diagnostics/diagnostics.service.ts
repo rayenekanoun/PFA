@@ -32,6 +32,7 @@ import { CreateDiagnosticRequestDto } from './dto/create-diagnostic-request.dto'
 import { DiagnosticNormalizerService } from './services/diagnostic-normalizer.service';
 import { DiagnosticPlannerService } from './services/diagnostic-planner.service';
 import { DiagnosticSummaryService } from './services/diagnostic-summary.service';
+import { explainDtc } from './utils/dtc-explainer.util';
 
 @Injectable()
 export class DiagnosticsService {
@@ -160,9 +161,9 @@ export class DiagnosticsService {
       throw new ForbiddenException('You do not have access to this diagnostic run.');
     }
 
-    return {
-      id: run.id,
-      status: run.status,
+      return {
+        id: run.id,
+        status: run.status,
       errorMessage: run.errorMessage,
       startedAt: run.startedAt,
       respondedAt: run.respondedAt,
@@ -172,10 +173,13 @@ export class DiagnosticsService {
         mqttCarId: request.vehicle.mqttCarId,
       },
       measurements: run.measurements,
-      dtcs: run.dtcs,
-      rawResponseJson: run.rawResponseJson,
-      mqttCommandJson: run.mqttCommandJson,
-    };
+        dtcs: run.dtcs.map((dtc) => ({
+          ...dtc,
+          ...explainDtc(dtc.code, dtc.description),
+        })),
+        rawResponseJson: run.rawResponseJson,
+        mqttCommandJson: run.mqttCommandJson,
+      };
   }
 
   public async handleCapabilityDiscoveryJob(input: { vehicleId: string; deviceId?: string }) {
@@ -248,14 +252,17 @@ export class DiagnosticsService {
         });
       }
 
-      const profiles = await this.profilesService.listProfiles();
-      if (profiles.length === 0) {
+      const candidateProfiles = await this.profilesService.listCandidateProfilesForComplaint(
+        request.complaintText,
+        48,
+      );
+      if (candidateProfiles.length === 0) {
         throw new ConflictException('No diagnostic profiles are available in the database.');
       }
 
       const classification = await this.aiService.classifyComplaint({
         complaintText: request.complaintText,
-        availableProfiles: profiles.map((profile) => ({
+        availableProfiles: candidateProfiles.map((profile) => ({
           code: profile.code,
           name: profile.name,
           description: profile.description,
@@ -263,7 +270,7 @@ export class DiagnosticsService {
       });
 
       const selectedProfile =
-        (await this.profilesService.findByCode(classification.profileCode)) ?? profiles[0];
+        (await this.profilesService.findByCode(classification.profileCode)) ?? candidateProfiles[0];
       const supportedFullCodes = await this.pidCatalogService.getSupportedCodesForVehicle(request.vehicleId);
       const plan = this.plannerService.buildPlan({
         profile: selectedProfile,
@@ -611,11 +618,12 @@ export class DiagnosticsService {
       profile: request.classifiedProfile
         ? {
             id: request.classifiedProfile.id,
-            code: request.classifiedProfile.code,
-            name: request.classifiedProfile.name,
-            confidence: request.classificationConfidence,
-            rationale: request.classificationRationale,
-          }
+          code: request.classifiedProfile.code,
+          name: request.classifiedProfile.name,
+          description: request.classifiedProfile.description,
+          confidence: request.classificationConfidence,
+          rationale: request.classificationRationale,
+        }
         : null,
       plan: request.plan
         ? {
@@ -646,6 +654,7 @@ export class DiagnosticsService {
               rawValue: measurement.rawValue,
             })),
             dtcs: latestRun.dtcs.map((dtc) => ({
+              ...explainDtc(dtc.code, dtc.description),
               code: dtc.code,
               description: dtc.description,
               severity: dtc.severity,

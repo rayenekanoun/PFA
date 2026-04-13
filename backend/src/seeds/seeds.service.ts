@@ -38,6 +38,8 @@ export class SeedsService implements OnModuleInit {
   }
 
   public async seedDiagnosticProfiles(): Promise<void> {
+    const activeCodes = new Set(DIAGNOSTIC_PROFILES_SEED.map((profile) => profile.code));
+
     for (const profile of DIAGNOSTIC_PROFILES_SEED) {
       const pidKeys = profile.defaultRequestedPidsJson.map((entry) => entry.key);
       const existingPids = await this.prisma.obdPidCatalog.findMany({
@@ -69,6 +71,17 @@ export class SeedsService implements OnModuleInit {
       });
     }
 
+    const deleteResult = await this.prisma.diagnosticProfile.deleteMany({
+      where: {
+        code: { notIn: [...activeCodes] },
+        diagnosticRequests: { none: {} },
+        diagnosticPlans: { none: {} },
+      },
+    });
+
     this.logger.log(`Seeded ${DIAGNOSTIC_PROFILES_SEED.length} diagnostic profiles.`);
+    if (deleteResult.count > 0) {
+      this.logger.log(`Removed ${deleteResult.count} stale diagnostic profile(s) that were not referenced.`);
+    }
   }
 }

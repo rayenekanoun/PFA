@@ -15,6 +15,7 @@ export interface StructuredDiagnosticSummary {
   profile: {
     code: string;
     name: string;
+    description: string | null;
     confidence: number | null;
     rationale: string | null;
   } | null;
@@ -40,6 +41,9 @@ export interface StructuredDiagnosticSummary {
     description: string;
     severity: string | null;
     state: string;
+    system: string;
+    humanTitle: string;
+    humanExplanation: string;
   }>;
   missing: string[];
   observations: string[];

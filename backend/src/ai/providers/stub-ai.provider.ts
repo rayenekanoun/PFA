@@ -37,7 +37,9 @@ export class StubAiProvider implements AiProvider {
   }
 
   public async generateReport(input: ReportGenerationInput): Promise<DiagnosticReportPayload> {
-    const dtcCodes = input.summary.dtcs.map((dtc) => dtc.code);
+    const dtcSummaries = input.summary.dtcs.map(
+      (dtc) => `${dtc.code}: ${dtc.humanExplanation ?? dtc.description}`,
+    );
     const lowMeasurements = input.summary.measurements
       .filter((measurement) => measurement.status === 'ok' && typeof measurement.value === 'number')
       .slice(0, 3)
@@ -45,10 +47,13 @@ export class StubAiProvider implements AiProvider {
 
     return {
       summary:
-        dtcCodes.length > 0
-          ? `The diagnostic run completed with ${dtcCodes.length} DTC(s) and ${input.summary.measurements.length} captured measurement(s).`
+        dtcSummaries.length > 0
+          ? `The diagnostic run completed with ${dtcSummaries.length} DTC(s) and ${input.summary.measurements.length} captured measurement(s).`
           : `The diagnostic run completed with ${input.summary.measurements.length} captured measurement(s) and no DTCs reported.`,
-      possibleCauses: dtcCodes.length > 0 ? dtcCodes.map((code) => `Investigate the fault behind ${code}.`) : ['No confirmed fault code was present, so focus on live-sensor trends and follow-up inspection.'],
+      possibleCauses:
+        dtcSummaries.length > 0
+          ? dtcSummaries
+          : ['No confirmed fault code was present, so focus on live-sensor trends and follow-up inspection.'],
       nextSteps: [
         'Review the measurements marked as missing or unsupported before assuming a clean result.',
         ...(lowMeasurements.length > 0 ? [`Compare these key measurements against expected ranges: ${lowMeasurements.join(', ')}.`] : []),
@@ -57,7 +62,7 @@ export class StubAiProvider implements AiProvider {
         'This report is generated from structured diagnostic data, not direct raw-byte interpretation by AI.',
         ...(input.summary.missing.length > 0 ? [`Some requested measurements were unavailable: ${input.summary.missing.join(', ')}.`] : []),
       ],
-      confidence: dtcCodes.length > 0 ? 0.8 : 0.62,
+      confidence: dtcSummaries.length > 0 ? 0.8 : 0.62,
     };
   }
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { type DiagnosticProfile, type DiagnosticRequest, type DiagnosticRun, type MeasurementStatus, type Prisma, type Vehicle } from '@prisma/client';
 import type { RequestedPidDescriptor, StructuredDiagnosticSummary } from '../types/structured-diagnostic-summary.type';
+import { explainDtc } from '../utils/dtc-explainer.util';
 
 interface BuildSummaryInput {
   request: DiagnosticRequest & {
@@ -81,6 +82,7 @@ export class DiagnosticSummaryService {
         ? {
             code: input.request.classifiedProfile.code,
             name: input.request.classifiedProfile.name,
+            description: input.request.classifiedProfile.description ?? null,
             confidence: input.request.classificationConfidence ?? null,
             rationale: input.request.classificationRationale ?? null,
           }
@@ -95,12 +97,18 @@ export class DiagnosticSummaryService {
       },
       requestedMeasurements,
       measurements,
-      dtcs: input.run.dtcs.map((dtc) => ({
-        code: dtc.code,
-        description: dtc.description,
-        severity: dtc.severity,
-        state: dtc.state.toLowerCase(),
-      })),
+      dtcs: input.run.dtcs.map((dtc) => {
+        const explanation = explainDtc(dtc.code, dtc.description);
+        return {
+          code: dtc.code,
+          description: dtc.description,
+          severity: dtc.severity,
+          state: dtc.state.toLowerCase(),
+          system: explanation.system,
+          humanTitle: explanation.humanTitle,
+          humanExplanation: explanation.humanExplanation,
+        };
+      }),
       missing,
       observations,
     };

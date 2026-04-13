@@ -26,6 +26,7 @@ describe('StubAiProvider', () => {
         profile: {
           code: 'battery_issue',
           name: 'Battery Issue',
+          description: 'Battery or charging-system complaint.',
           confidence: 0.8,
           rationale: 'Matched battery terms.',
         },

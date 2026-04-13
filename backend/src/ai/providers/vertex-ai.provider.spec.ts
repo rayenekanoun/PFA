@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { ConfigService } from '@nestjs/config';
 import { VertexAiProvider } from './vertex-ai.provider';
 
@@ -62,12 +65,113 @@ describe('VertexAiProvider', () => {
         headers: expect.objectContaining({
           Authorization: 'Bearer vertex-access-token',
         }),
+        body: expect.any(String),
+      }),
+    );
+    expect(JSON.parse(fetchSpy.mock.calls[0][1]!.body as string)).toEqual(
+      expect.objectContaining({
+        systemInstruction: expect.objectContaining({
+          parts: [
+            expect.objectContaining({
+              text: expect.stringContaining('You classify car-diagnostic complaints'),
+            }),
+          ],
+        }),
+        generationConfig: expect.objectContaining({
+          responseMimeType: 'application/json',
+          responseJsonSchema: expect.any(Object),
+        }),
       }),
     );
     expect(result.profileCode).toBe('overheating');
   });
 
-  it('throws when project id is missing', async () => {
+  it('uses project id from the configured service-account file when env project id is missing', async () => {
+    const tempDirectory = mkdtempSync(join(tmpdir(), 'vertex-ai-provider-'));
+    try {
+      const keyFilePath = join(tempDirectory, 'service-account.json');
+      writeFileSync(
+        keyFilePath,
+        JSON.stringify({
+          type: 'service_account',
+          project_id: 'file-project-id',
+          client_email: 'vertex@example.com',
+          private_key: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n',
+        }),
+      );
+
+      const fileProjectConfig = {
+        get: jest.fn((key: string, defaultValue?: string) => {
+          const values: Record<string, string> = {
+            VERTEX_LOCATION: 'us-central1',
+            VERTEX_MODEL: 'gemini-2.5-flash',
+            VERTEX_SERVICE_ACCOUNT_PATH: keyFilePath,
+          };
+          return values[key] ?? defaultValue;
+        }),
+      };
+
+      const fileProjectProvider = new VertexAiProvider(fileProjectConfig as unknown as ConfigService);
+      (
+        fileProjectProvider as unknown as { getAccessToken: () => Promise<string> }
+      ).getAccessToken = jest.fn().mockResolvedValue('vertex-access-token');
+
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      summary: 'Summary',
+                      possibleCauses: ['Cause A'],
+                      nextSteps: ['Step A'],
+                      caveats: ['Caveat A'],
+                      confidence: 0.8,
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      } as Response);
+
+      await fileProjectProvider.generateReport({
+        summary: {
+          requestId: 'req-1',
+          runId: 'run-1',
+          complaintText: 'test',
+          requestStatus: 'COMPLETED',
+          profile: null,
+          vehicle: {
+            id: 'veh-1',
+            mqttCarId: 'sim-demo',
+            vin: null,
+            make: null,
+            model: null,
+            year: null,
+          },
+          requestedMeasurements: [],
+          measurements: [],
+          dtcs: [],
+          missing: [],
+          observations: [],
+        },
+      });
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/projects/file-project-id/locations/us-central1/'),
+        expect.any(Object),
+      );
+    } finally {
+      rmSync(tempDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it('throws when project id is missing from env and credentials', async () => {
     const missingProjectConfig = {
       get: jest.fn((key: string, defaultValue?: string) => {
         if (key === 'VERTEX_PROJECT_ID') return undefined;
@@ -81,6 +185,11 @@ describe('VertexAiProvider', () => {
     (
       missingProjectProvider as unknown as { getAccessToken: () => Promise<string> }
     ).getAccessToken = jest.fn().mockResolvedValue('vertex-access-token');
+    (
+      missingProjectProvider as unknown as { buildGoogleAuth: () => { getProjectId: () => Promise<string> } }
+    ).buildGoogleAuth = jest.fn().mockReturnValue({
+      getProjectId: jest.fn().mockRejectedValue(new Error('no inferred project id')),
+    });
 
     await expect(
       missingProjectProvider.generateReport({

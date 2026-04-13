@@ -56,6 +56,7 @@ interface DiagnosticRequestDetail {
   profile: {
     code: string;
     name: string;
+    description: string | null;
     confidence: number | null;
     rationale: string | null;
   } | null;
@@ -80,6 +81,9 @@ interface DiagnosticRequestDetail {
       description: string;
       severity: string | null;
       state: string;
+      system: string;
+      humanTitle: string;
+      humanExplanation: string;
     }>;
   } | null;
   report: {
@@ -842,6 +846,7 @@ function App() {
                     ? `(${Math.round(requestDetail.profile.confidence * 100)}%)`
                     : ''}
                 </p>
+                {requestDetail.profile?.description && <p>{requestDetail.profile.description}</p>}
                 <p>Vehicle: {requestDetail.vehicle.mqttCarId}</p>
               </div>
 
@@ -867,7 +872,9 @@ function App() {
                   <ul className="tight-list">
                     {requestDetail.latestRun.dtcs.map((dtc) => (
                       <li key={dtc.code}>
-                        <strong>{dtc.code}</strong>: {dtc.description} ({dtc.state})
+                        <strong>{dtc.code}</strong>: {dtc.humanTitle} ({dtc.state})
+                        <br />
+                        <span>{dtc.humanExplanation}</span>
                       </li>
                     ))}
                   </ul>

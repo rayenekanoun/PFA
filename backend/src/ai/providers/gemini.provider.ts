@@ -28,7 +28,7 @@ export class GeminiProvider implements AiProvider {
   public async generateReport(input: ReportGenerationInput): Promise<DiagnosticReportPayload> {
     const content = await this.requestJson({
       instruction:
-        'You generate a structured diagnostic report from normalized backend data. Return strict JSON only with keys: summary, possibleCauses, nextSteps, caveats, confidence.',
+        'You generate a structured diagnostic report from normalized backend data. Return strict JSON only with keys: summary, possibleCauses, nextSteps, caveats, confidence. If DTCs are present, explain each code in plain English instead of only repeating the raw code.',
       input,
     });
     return diagnosticReportSchema.parse(content);

@@ -36,7 +36,7 @@ describe('DiagnosticSummaryService', () => {
           id: 'profile-1',
           code: 'overheating',
           name: 'Overheating',
-          description: null,
+          description: 'Cooling-system temperature issue.',
           defaultRequestedPidsJson: [],
           includeDtcsByDefault: true,
           createdAt: new Date(),
@@ -119,5 +119,7 @@ describe('DiagnosticSummaryService', () => {
     expect(summary.observations.join(' ')).toContain('Coolant temperature is elevated');
     expect(summary.observations.join(' ')).toContain('Control module voltage is low');
     expect(summary.observations.join(' ')).toContain('diagnostic trouble code');
+    expect(summary.profile?.description).toBe('Cooling-system temperature issue.');
+    expect(summary.dtcs[0]?.humanExplanation).toContain('Plain English');
   });
 });

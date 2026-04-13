@@ -41,25 +41,39 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file:
+      - .env
     environment:
-      NODE_ENV: development
-      PORT: 3000
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/car_diagnostics?schema=public
       REDIS_URL: redis://redis:6379/0
-      JWT_ACCESS_SECRET: replace-with-a-long-access-secret
-      JWT_REFRESH_SECRET: replace-with-a-long-refresh-secret
-      JWT_ACCESS_EXPIRES_IN: 15m
-      JWT_REFRESH_EXPIRES_IN: 30d
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-replace-with-a-long-access-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-replace-with-a-long-refresh-secret}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
       MQTT_SERVERS: emqx1:1883,emqx2:1883,emqx3:1883
-      MQTT_CLIENT_ID: diagnostic-backend
-      MQTT_REQUEST_TIMEOUT_MS: 15000
-      SUPPORTED_PID_STALE_HOURS: 24
-      SWAGGER_ENABLED: true
-      AI_PROVIDER: stub
-      AI_MODEL: gpt-4.1-mini
-      AI_BASE_URL: https://api.openai.com/v1
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-diagnostic-backend}
+      MQTT_REQUEST_TIMEOUT_MS: ${MQTT_REQUEST_TIMEOUT_MS:-15000}
+      SUPPORTED_PID_STALE_HOURS: ${SUPPORTED_PID_STALE_HOURS:-24}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      DEV_DISABLE_OWNERSHIP_FILTER: ${DEV_DISABLE_OWNERSHIP_FILTER:-false}
+      AI_PROVIDER: ${AI_PROVIDER:-stub}
+      AI_ALLOW_STUB_FALLBACK: ${AI_ALLOW_STUB_FALLBACK:-false}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4.1-mini}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.openai.com/v1}
+      VERTEX_PROJECT_ID: ${VERTEX_PROJECT_ID:-}
+      VERTEX_LOCATION: ${VERTEX_LOCATION:-us-central1}
+      VERTEX_MODEL: ${VERTEX_MODEL:-gemini-2.5-flash}
+      VERTEX_SERVICE_ACCOUNT_JSON: ${VERTEX_SERVICE_ACCOUNT_JSON:-}
+      VERTEX_SERVICE_ACCOUNT_PATH: ${VERTEX_SERVICE_ACCOUNT_PATH_DOCKER:-}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
     ports:
       - "3000:3000"
+    volumes:
+      - ./secrets:/run/secrets:ro
     networks:
       - default
       - mqtt-net

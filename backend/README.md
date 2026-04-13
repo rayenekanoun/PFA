@@ -125,11 +125,18 @@ Vertex AI (service account file) configuration example:
 ```env
 AI_PROVIDER=vertex
 AI_ALLOW_STUB_FALLBACK=false
-VERTEX_PROJECT_ID=your-gcp-project-id
 VERTEX_LOCATION=us-central1
 VERTEX_MODEL=gemini-2.5-flash
+VERTEX_SERVICE_ACCOUNT_PATH=C:\path\to\service-account.json
 GOOGLE_APPLICATION_CREDENTIALS=C:\path\to\service-account.json
 ```
+
+Notes:
+
+- `VERTEX_PROJECT_ID` is optional when the configured service-account JSON already contains `project_id`
+- `VERTEX_SERVICE_ACCOUNT_PATH` is a clearer alias for the credential file path; `GOOGLE_APPLICATION_CREDENTIALS` still works too
+- for local Windows runs, point `VERTEX_SERVICE_ACCOUNT_PATH` or `GOOGLE_APPLICATION_CREDENTIALS` to a Windows path such as `C:\...`
+- for Docker runs, put the key under `backend/secrets/` and set `VERTEX_SERVICE_ACCOUNT_PATH_DOCKER=/run/secrets/your-service-account.json`
 
 Vertex AI (inline service account JSON) configuration example:
 
@@ -140,6 +147,18 @@ VERTEX_PROJECT_ID=your-gcp-project-id
 VERTEX_LOCATION=us-central1
 VERTEX_MODEL=gemini-2.5-flash
 VERTEX_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n..."}
+```
+
+Smoke test the AI provider without running the full backend:
+
+```powershell
+npm run ai:smoke
+```
+
+Or pass a custom complaint:
+
+```powershell
+npm run ai:smoke -- "Battery light is on and the car struggles to start"
 ```
 
 ## Local Run
@@ -192,6 +211,8 @@ Notes:
 
 - the backend compose file joins the external `mqtt-net` network
 - start `infra/mqtt-cluster` first so that `mqtt-net` exists
+- the compose backend now reads `backend/.env` for AI settings
+- for Vertex in Docker, prefer `VERTEX_SERVICE_ACCOUNT_JSON` or mount your key into `backend/secrets/` and set `VERTEX_SERVICE_ACCOUNT_PATH_DOCKER=/run/secrets/your-service-account.json`
 
 ## Main Endpoints
 

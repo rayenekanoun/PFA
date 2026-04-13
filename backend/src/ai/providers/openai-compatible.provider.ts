@@ -30,7 +30,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       {
         role: 'system',
         content:
-          'You generate a structured diagnostic report from normalized backend data. Return strict JSON only with keys: summary, possibleCauses, nextSteps, caveats, confidence.',
+          'You generate a structured diagnostic report from normalized backend data. Return strict JSON only with keys: summary, possibleCauses, nextSteps, caveats, confidence. If DTCs are present, explain each code in plain English instead of only repeating the raw code.',
       },
       {
         role: 'user',

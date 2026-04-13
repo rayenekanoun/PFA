@@ -34,6 +34,7 @@ const envSchema = z.object({
   VERTEX_LOCATION: z.string().default('us-central1'),
   VERTEX_MODEL: z.string().default('gemini-2.5-flash'),
   VERTEX_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  VERTEX_SERVICE_ACCOUNT_PATH: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
 });
 
