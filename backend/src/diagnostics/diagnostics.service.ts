@@ -12,6 +12,7 @@ import {
   DiagnosticRequestStatus,
   DiagnosticRunStatus,
   MeasurementStatus,
+  type DiagnosticProfile,
   Prisma,
   UserRole,
 } from '@prisma/client';
@@ -307,6 +308,16 @@ export class DiagnosticsService {
           status: DiagnosticRequestStatus.PLANNED,
         },
       });
+
+      if (plan.requestedPids.length === 0) {
+        return this.completeAsUndiagnosable({
+          request,
+          selectedProfile,
+          classification,
+          savedPlan,
+          plannerNotes: plan.plannerNotes,
+        });
+      }
 
       const run = await this.prisma.diagnosticRun.create({
         data: {
@@ -672,6 +683,123 @@ export class DiagnosticsService {
             createdAt: request.report.createdAt,
           }
         : null,
+    };
+  }
+
+  private async completeAsUndiagnosable(input: {
+    request: {
+      id: string;
+      complaintText: string;
+      vehicleId: string;
+      vehicle: {
+        id: string;
+        mqttCarId: string;
+        vin: string | null;
+        make: string | null;
+        model: string | null;
+        year: number | null;
+        device: { id: string } | null;
+      };
+    };
+    selectedProfile: DiagnosticProfile;
+    classification: {
+      confidence: number;
+      rationale: string;
+    };
+    savedPlan: {
+      id: string;
+    };
+    plannerNotes: string;
+  }) {
+    const explanation =
+      'The selected profile did not produce any usable OBD live-data measurements, so this issue cannot be diagnosed reliably through the current automated OBD workflow.';
+    const now = new Date();
+    const run = await this.prisma.diagnosticRun.create({
+      data: {
+        diagnosticPlanId: input.savedPlan.id,
+        deviceId: input.request.vehicle.device?.id ?? null,
+        mqttJobId: `undx-${input.request.id}-${Date.now()}`,
+        status: DiagnosticRunStatus.FAILED,
+        startedAt: now,
+        respondedAt: now,
+        errorMessage: explanation,
+        mqttCommandJson: {
+          requestId: input.request.id,
+          planId: input.savedPlan.id,
+          carId: input.request.vehicle.mqttCarId,
+          includeDtcs: false,
+          pids: [],
+          skippedReason: 'NO_REQUESTABLE_PIDS',
+        } as Prisma.InputJsonValue,
+        rawResponseJson: {
+          requestId: input.request.id,
+          planId: input.savedPlan.id,
+          carId: input.request.vehicle.mqttCarId,
+          generatedAt: now.toISOString(),
+          status: 'error',
+          measurements: [],
+          dtcs: [],
+          error: {
+            code: 'NO_REQUESTABLE_PIDS',
+            message: explanation,
+          },
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    const structuredSummary = {
+      requestId: input.request.id,
+      runId: run.id,
+      complaintText: input.request.complaintText,
+      requestStatus: DiagnosticRequestStatus.COMPLETED,
+      profile: {
+        code: input.selectedProfile.code,
+        name: input.selectedProfile.name,
+        description: input.selectedProfile.description ?? null,
+        confidence: input.classification.confidence,
+        rationale: input.classification.rationale,
+      },
+      vehicle: {
+        id: input.request.vehicle.id,
+        mqttCarId: input.request.vehicle.mqttCarId,
+        vin: input.request.vehicle.vin ?? null,
+        make: input.request.vehicle.make ?? null,
+        model: input.request.vehicle.model ?? null,
+        year: input.request.vehicle.year ?? null,
+      },
+      requestedMeasurements: [],
+      measurements: [],
+      dtcs: [],
+      missing: [],
+      observations: [explanation, input.plannerNotes],
+    };
+
+    await this.reportsService.createOrUpdateReport(input.request.id, run.id, structuredSummary, {
+      summary: 'We are not able to diagnose this issue through the current automated OBD profile.',
+      possibleCauses: [
+        'This complaint is not well covered by the currently requestable OBD measurements for the selected profile.',
+      ],
+      nextSteps: [
+        'Inspect the affected system manually or use a diagnostic path outside the current OBD live-data workflow.',
+        'Capture additional symptoms, noises, dashboard warnings, or workshop findings to refine the complaint.',
+      ],
+      caveats: [explanation],
+      confidence: 0.15,
+    });
+
+    await this.prisma.diagnosticRequest.update({
+      where: { id: input.request.id },
+      data: {
+        status: DiagnosticRequestStatus.COMPLETED,
+        completedAt: now,
+        errorMessage: null,
+      },
+    });
+
+    return {
+      requestId: input.request.id,
+      runId: run.id,
+      status: DiagnosticRunStatus.FAILED,
     };
   }
 }

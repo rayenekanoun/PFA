@@ -21,9 +21,16 @@ describe('DiagnosticsService', () => {
   const prismaMock = {
     diagnosticRequest: {
       create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
     },
     diagnosticRun: {
       findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
+    diagnosticPlan: {
+      upsert: jest.fn(),
     },
   };
 
@@ -36,12 +43,24 @@ describe('DiagnosticsService', () => {
     getVehicle: jest.fn(),
   };
 
-  const profilesServiceMock = {};
-  const pidCatalogServiceMock = {};
+  const profilesServiceMock = {
+    listCandidateProfilesForComplaint: jest.fn(),
+    findByCode: jest.fn(),
+  };
+  const pidCatalogServiceMock = {
+    hasFreshSupportedPids: jest.fn(),
+    getSupportedCodesForVehicle: jest.fn(),
+  };
   const mqttServiceMock = {};
-  const aiServiceMock = {};
-  const reportsServiceMock = {};
-  const plannerServiceMock = {};
+  const aiServiceMock = {
+    classifyComplaint: jest.fn(),
+  };
+  const reportsServiceMock = {
+    createOrUpdateReport: jest.fn(),
+  };
+  const plannerServiceMock = {
+    buildPlan: jest.fn(),
+  };
   const normalizerServiceMock = {};
   const summaryServiceMock = {};
   const queueMock = {
@@ -54,16 +73,90 @@ describe('DiagnosticsService', () => {
       prismaMock as unknown as PrismaService,
       configServiceMock as unknown as ConfigService,
       vehiclesServiceMock as unknown as VehiclesService,
-      profilesServiceMock as ProfilesService,
-      pidCatalogServiceMock as PidCatalogService,
+      profilesServiceMock as unknown as ProfilesService,
+      pidCatalogServiceMock as unknown as PidCatalogService,
       mqttServiceMock as MqttService,
-      aiServiceMock as AiService,
-      reportsServiceMock as ReportsService,
-      plannerServiceMock as DiagnosticPlannerService,
+      aiServiceMock as unknown as AiService,
+      reportsServiceMock as unknown as ReportsService,
+      plannerServiceMock as unknown as DiagnosticPlannerService,
       normalizerServiceMock as DiagnosticNormalizerService,
       summaryServiceMock as DiagnosticSummaryService,
       queueMock as unknown as Queue,
     );
+  });
+
+  it('completes with an undiagnosable report when the selected profile has no requestable pids', async () => {
+    const selectedProfile = {
+      id: 'prof-1',
+      code: 'brake_mechanical_issue',
+      name: 'Brake Mechanical Issue',
+      description: 'Complaint likely needs manual inspection rather than OBD live data.',
+    };
+
+    prismaMock.diagnosticRequest.findUnique.mockResolvedValue({
+      id: 'req-2',
+      vehicleId: 'veh-1',
+      complaintText: 'the brakes are weak',
+      vehicle: {
+        id: 'veh-1',
+        mqttCarId: 'sim-demo',
+        vin: null,
+        make: 'Toyota',
+        model: 'Yaris',
+        year: 2012,
+        device: { id: 'dev-1' },
+      },
+    });
+    pidCatalogServiceMock.hasFreshSupportedPids.mockResolvedValue(true);
+    profilesServiceMock.listCandidateProfilesForComplaint.mockResolvedValue([selectedProfile]);
+    aiServiceMock.classifyComplaint.mockResolvedValue({
+      profileCode: selectedProfile.code,
+      confidence: 0.91,
+      rationale: 'Brake complaint best matches a non-OBD mechanical profile.',
+    });
+    profilesServiceMock.findByCode.mockResolvedValue(selectedProfile);
+    pidCatalogServiceMock.getSupportedCodesForVehicle.mockResolvedValue(new Set(['010C']));
+    plannerServiceMock.buildPlan.mockReturnValue({
+      requestedPids: [],
+      includeDtcs: true,
+      plannerNotes: 'OBD visibility is limited for this complaint.',
+    });
+    prismaMock.diagnosticPlan.upsert.mockResolvedValue({ id: 'plan-1' });
+    prismaMock.diagnosticRequest.update.mockResolvedValue({});
+    prismaMock.diagnosticRun.create.mockResolvedValue({ id: 'run-2' });
+    reportsServiceMock.createOrUpdateReport.mockResolvedValue({ id: 'report-1' });
+
+    const result = await service.handleExecuteDiagnosticRequestJob({ requestId: 'req-2' });
+
+    expect(prismaMock.diagnosticRun.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: DiagnosticRunStatus.FAILED,
+          errorMessage: expect.stringContaining('cannot be diagnosed reliably'),
+        }),
+      }),
+    );
+    expect(reportsServiceMock.createOrUpdateReport).toHaveBeenCalledWith(
+      'req-2',
+      'run-2',
+      expect.objectContaining({
+        requestedMeasurements: [],
+        measurements: [],
+      }),
+      expect.objectContaining({
+        summary: expect.stringContaining('not able to diagnose'),
+      }),
+    );
+    expect(queueMock.add).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ requestId: 'req-2', runId: 'run-2' }),
+      expect.anything(),
+    );
+    expect(result).toEqual({
+      requestId: 'req-2',
+      runId: 'run-2',
+      status: DiagnosticRunStatus.FAILED,
+    });
   });
 
   it('rejects request creation when vehicle has no linked device', async () => {
