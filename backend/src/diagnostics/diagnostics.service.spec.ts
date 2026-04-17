@@ -32,6 +32,15 @@ describe('DiagnosticsService', () => {
     diagnosticPlan: {
       upsert: jest.fn(),
     },
+    diagnosticConversation: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    diagnosticConversationMessage: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
   };
 
   const configServiceMock = {
@@ -83,6 +92,7 @@ describe('DiagnosticsService', () => {
       summaryServiceMock as DiagnosticSummaryService,
       queueMock as unknown as Queue,
     );
+    prismaMock.diagnosticConversation.findUnique.mockResolvedValue(null);
   });
 
   it('completes with an undiagnosable report when the selected profile has no requestable pids', async () => {

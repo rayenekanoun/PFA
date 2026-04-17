@@ -8,6 +8,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ProfilesModule } from '../profiles/profiles.module';
 import { ReportsModule } from '../reports/reports.module';
 import { VehiclesModule } from '../vehicles/vehicles.module';
+import { ConversationsController } from './conversations.controller';
+import { ConversationsService } from './conversations.service';
 import { DiagnosticsController } from './diagnostics.controller';
 import { DiagnosticsProcessor } from './processors/diagnostics.processor';
 import { DiagnosticsService } from './diagnostics.service';
@@ -27,14 +29,15 @@ import { DiagnosticSummaryService } from './services/diagnostic-summary.service'
     AiModule,
     ReportsModule,
   ],
-  controllers: [DiagnosticsController],
+  controllers: [DiagnosticsController, ConversationsController],
   providers: [
     DiagnosticsService,
+    ConversationsService,
     DiagnosticsProcessor,
     DiagnosticPlannerService,
     DiagnosticNormalizerService,
     DiagnosticSummaryService,
   ],
-  exports: [DiagnosticsService, DiagnosticSummaryService],
+  exports: [DiagnosticsService, DiagnosticSummaryService, ConversationsService],
 })
 export class DiagnosticsModule {}

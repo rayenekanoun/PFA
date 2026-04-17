@@ -9,6 +9,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
 import {
+  ConversationMessageKind,
+  ConversationMessageRole,
   DiagnosticRequestStatus,
   DiagnosticRunStatus,
   MeasurementStatus,
@@ -64,6 +66,23 @@ export class DiagnosticsService {
         vehicleId: dto.vehicleId,
         complaintText: dto.complaintText,
         status: DiagnosticRequestStatus.CREATED,
+        conversation: {
+          create: {
+            userId: user.sub,
+            vehicleId: dto.vehicleId,
+            title: this.buildConversationTitle(dto.complaintText),
+            messages: {
+              create: {
+                role: ConversationMessageRole.USER,
+                kind: ConversationMessageKind.INITIAL_PROMPT,
+                content: dto.complaintText,
+              },
+            },
+          },
+        },
+      },
+      include: {
+        conversation: true,
       },
     });
 
@@ -79,6 +98,7 @@ export class DiagnosticsService {
 
     return {
       requestId: request.id,
+      conversationId: request.conversation?.id ?? null,
       status: request.status,
       pollingUrl: `/api/diagnostic-requests/${request.id}`,
     };
@@ -93,6 +113,11 @@ export class DiagnosticsService {
         vehicle: true,
         classifiedProfile: true,
         report: true,
+        conversation: {
+          select: {
+            id: true,
+          },
+        },
         plan: {
           include: {
             runs: {
@@ -122,6 +147,7 @@ export class DiagnosticsService {
       },
       profile: request.classifiedProfile,
       latestRun: request.plan?.runs[0] ?? null,
+      conversationId: request.conversation?.id ?? null,
       hasReport: !!request.report,
     }));
   }
@@ -190,7 +216,7 @@ export class DiagnosticsService {
       requestId,
       carId: vehicle.mqttCarId,
       correlationId: input.deviceId ?? vehicle.device!.id,
-      supportWindows: ['0100', '0120', '0140'],
+      supportWindows: this.pidCatalogService.getCapabilityDiscoveryWindows(),
     });
 
     if (response.status === 'error') {
@@ -439,6 +465,7 @@ export class DiagnosticsService {
         structuredSummary,
         reportJson,
       );
+      await this.syncConversationReportMessage(input.requestId, report.reportText, report.reportJson);
 
       await this.prisma.diagnosticRequest.update({
         where: { id: input.requestId },
@@ -584,6 +611,11 @@ export class DiagnosticsService {
           },
         },
         report: true,
+        conversation: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
@@ -683,6 +715,7 @@ export class DiagnosticsService {
             createdAt: request.report.createdAt,
           }
         : null,
+      conversationId: request.conversation?.id ?? null,
     };
   }
 
@@ -774,7 +807,7 @@ export class DiagnosticsService {
       observations: [explanation, input.plannerNotes],
     };
 
-    await this.reportsService.createOrUpdateReport(input.request.id, run.id, structuredSummary, {
+    const report = await this.reportsService.createOrUpdateReport(input.request.id, run.id, structuredSummary, {
       summary: 'We are not able to diagnose this issue through the current automated OBD profile.',
       possibleCauses: [
         'This complaint is not well covered by the currently requestable OBD measurements for the selected profile.',
@@ -786,6 +819,7 @@ export class DiagnosticsService {
       caveats: [explanation],
       confidence: 0.15,
     });
+    await this.syncConversationReportMessage(input.request.id, report.reportText, report.reportJson);
 
     await this.prisma.diagnosticRequest.update({
       where: { id: input.request.id },
@@ -801,5 +835,64 @@ export class DiagnosticsService {
       runId: run.id,
       status: DiagnosticRunStatus.FAILED,
     };
+  }
+
+  private async syncConversationReportMessage(
+    diagnosticRequestId: string,
+    reportText: string,
+    reportJson: Prisma.JsonValue,
+  ) {
+    const conversation = await this.prisma.diagnosticConversation.findUnique({
+      where: { diagnosticRequestId },
+      select: { id: true },
+    });
+
+    if (!conversation) {
+      return;
+    }
+
+    const existing = await this.prisma.diagnosticConversationMessage.findFirst({
+      where: {
+        conversationId: conversation.id,
+        kind: ConversationMessageKind.REPORT,
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await this.prisma.diagnosticConversationMessage.update({
+        where: { id: existing.id },
+        data: {
+          content: reportText,
+          metadataJson: reportJson as Prisma.InputJsonValue,
+        },
+      });
+    } else {
+      await this.prisma.diagnosticConversationMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: ConversationMessageRole.ASSISTANT,
+          kind: ConversationMessageKind.REPORT,
+          content: reportText,
+          metadataJson: reportJson as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    await this.prisma.diagnosticConversation.update({
+      where: { id: conversation.id },
+      data: {
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  private buildConversationTitle(complaintText: string) {
+    const normalized = complaintText.trim().replace(/\s+/g, ' ');
+    if (normalized.length <= 80) {
+      return normalized;
+    }
+
+    return `${normalized.slice(0, 77)}...`;
   }
 }

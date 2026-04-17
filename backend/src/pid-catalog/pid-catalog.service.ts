@@ -4,6 +4,17 @@ import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/types/authenticated-user.type';
 
+const CAPABILITY_DISCOVERY_WINDOWS = [
+  '0100',
+  '0120',
+  '0140',
+  '0160',
+  '0200',
+  '0500',
+  '0600',
+  '0900',
+] as const;
+
 @Injectable()
 export class PidCatalogService {
   public constructor(
@@ -30,6 +41,10 @@ export class PidCatalogService {
 
   public async findByFullCode(fullCode: string) {
     return this.prisma.obdPidCatalog.findUnique({ where: { fullCode } });
+  }
+
+  public getCapabilityDiscoveryWindows(): string[] {
+    return [...CAPABILITY_DISCOVERY_WINDOWS];
   }
 
   public async listSupportedForVehicle(

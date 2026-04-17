@@ -5,9 +5,12 @@ import { GoogleAuth } from 'google-auth-library';
 import {
   complaintClassificationSchema,
   diagnosticReportSchema,
+  followUpAnswerSchema,
   type ClassificationInput,
   type ComplaintClassification,
   type DiagnosticReportPayload,
+  type FollowUpAnswerInput,
+  type FollowUpAnswerPayload,
   type ReportGenerationInput,
 } from '../ai.schemas';
 import type { AiProvider } from './ai-provider.interface';
@@ -55,6 +58,22 @@ const diagnosticReportResponseJsonSchema: JsonSchema = {
   propertyOrdering: ['summary', 'possibleCauses', 'nextSteps', 'caveats', 'confidence'],
 };
 
+const followUpAnswerResponseJsonSchema: JsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    answer: { type: 'string' },
+    grounded: { type: 'boolean' },
+    confidence: { type: 'number', minimum: 0, maximum: 1 },
+    usedSources: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  },
+  required: ['answer', 'grounded', 'confidence', 'usedSources'],
+  propertyOrdering: ['answer', 'grounded', 'confidence', 'usedSources'],
+};
+
 @Injectable()
 export class VertexAiProvider implements AiProvider {
   private readonly logger = new Logger(VertexAiProvider.name);
@@ -80,6 +99,16 @@ export class VertexAiProvider implements AiProvider {
       responseJsonSchema: diagnosticReportResponseJsonSchema,
     });
     return diagnosticReportSchema.parse(content);
+  }
+
+  public async answerFollowUp(input: FollowUpAnswerInput): Promise<FollowUpAnswerPayload> {
+    const content = await this.requestJson({
+      instruction:
+        'You answer a follow-up question about a previously completed vehicle diagnostic report. Use only the provided summary, report, and message history. If the answer is not directly supported by the provided data, answer that you do not know based on the current vehicle/device data. Return strict JSON only with keys: answer, grounded, confidence, usedSources.',
+      input,
+      responseJsonSchema: followUpAnswerResponseJsonSchema,
+    });
+    return followUpAnswerSchema.parse(content);
   }
 
   private async requestJson(payload: {

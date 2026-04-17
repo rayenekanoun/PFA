@@ -51,6 +51,18 @@ function Wait-ContainerHealthy {
   throw "Container '$ContainerName' did not become healthy within $TimeoutSeconds seconds."
 }
 
+function Invoke-CheckedExternal {
+  param(
+    [string]$FilePath,
+    [string[]]$ArgumentList = @()
+  )
+
+  & $FilePath @ArgumentList
+  if ($LASTEXITCODE -ne 0) {
+    throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($ArgumentList -join ' ')"
+  }
+}
+
 function Start-BackendDetached {
   if (-not (Test-Path $logsDir)) {
     New-Item -Path $logsDir -ItemType Directory | Out-Null
@@ -114,15 +126,29 @@ Push-Location $backendDir
 try {
   if (-not $SkipInstall) {
     Write-Host "Installing backend dependencies..."
-    npm install
+    Invoke-CheckedExternal -FilePath "npm" -ArgumentList @("install")
   }
 
+  Write-Host "Ensuring TimescaleDB extension exists..."
+  Invoke-CheckedExternal -FilePath "docker" -ArgumentList @(
+    "exec",
+    "car-diagnostics-postgres",
+    "psql",
+    "-X",
+    "-U",
+    "postgres",
+    "-d",
+    "car_diagnostics",
+    "-c",
+    "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+  )
+
   Write-Host "Applying database migrations..."
-  npm run prisma:migrate:deploy
+  Invoke-CheckedExternal -FilePath "npm" -ArgumentList @("run", "prisma:migrate:deploy")
 
   if (-not $NoBuild) {
     Write-Host "Building backend..."
-    npm run build
+    Invoke-CheckedExternal -FilePath "npm" -ArgumentList @("run", "build")
   }
 }
 finally {

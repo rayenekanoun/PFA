@@ -11,12 +11,13 @@ describe('VehiclesService', () => {
   let service: VehiclesService;
 
   const prismaMock = {
+    $transaction: jest.fn(),
     vehicle: {
       findFirst: jest.fn(),
       create: jest.fn(),
     },
     device: {
-      create: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
   };
@@ -92,7 +93,7 @@ describe('VehiclesService', () => {
     ).rejects.toThrow('Vehicle with the same unique field already exists');
   });
 
-  it('attaches a new device and queues capability discovery', async () => {
+  it('claims an existing inventory device and queues capability discovery', async () => {
     prismaMock.vehicle.findFirst.mockResolvedValue({
       id: 'veh-1',
       userId: 'user-1',
@@ -106,8 +107,25 @@ describe('VehiclesService', () => {
       updatedAt: new Date(),
       device: null,
     });
-    prismaMock.device.create.mockResolvedValue({
+    prismaMock.device.findUnique.mockResolvedValue({
       id: 'dev-1',
+      deviceCode: 'OBD-QR-001',
+      vehicleId: null,
+      serialNumber: 'STM32-001',
+      firmwareVersion: '1.0.0',
+      status: DeviceStatus.AVAILABLE,
+      lastSeenAt: null,
+      capabilitiesDiscoveredAt: null,
+      capabilitiesResponseJson: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    prismaMock.$transaction.mockImplementation(async (callback: (tx: typeof prismaMock) => Promise<unknown>) =>
+      callback(prismaMock as typeof prismaMock),
+    );
+    prismaMock.device.update.mockResolvedValue({
+      id: 'dev-1',
+      deviceCode: 'OBD-QR-001',
       vehicleId: 'veh-1',
       serialNumber: 'STM32-001',
       firmwareVersion: '1.0.0',
@@ -124,16 +142,18 @@ describe('VehiclesService', () => {
       { sub: 'user-1', email: 'u@example.com', role: UserRole.USER },
       'veh-1',
       {
-        serialNumber: 'STM32-001',
+        deviceCode: 'OBD-QR-001',
         firmwareVersion: '1.0.0',
       },
     );
 
-    expect(prismaMock.device.create).toHaveBeenCalledWith(
+    expect(prismaMock.device.findUnique).toHaveBeenCalledWith({
+      where: { deviceCode: 'OBD-QR-001' },
+    });
+    expect(prismaMock.device.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           vehicleId: 'veh-1',
-          serialNumber: 'STM32-001',
           status: DeviceStatus.LINKED,
         }),
       }),

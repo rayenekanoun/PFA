@@ -3,9 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import {
   complaintClassificationSchema,
   diagnosticReportSchema,
+  followUpAnswerSchema,
   type ClassificationInput,
   type ComplaintClassification,
   type DiagnosticReportPayload,
+  type FollowUpAnswerInput,
+  type FollowUpAnswerPayload,
   type ReportGenerationInput,
 } from '../ai.schemas';
 import type { AiProvider } from './ai-provider.interface';
@@ -32,6 +35,15 @@ export class GeminiProvider implements AiProvider {
       input,
     });
     return diagnosticReportSchema.parse(content);
+  }
+
+  public async answerFollowUp(input: FollowUpAnswerInput): Promise<FollowUpAnswerPayload> {
+    const content = await this.requestJson({
+      instruction:
+        'You answer a follow-up question about a previously completed vehicle diagnostic report. Use only the provided summary, report, and message history. If the answer is not directly supported by the provided data, say that you do not know based on the current vehicle/device data. Return strict JSON only with keys: answer, grounded, confidence, usedSources.',
+      input,
+    });
+    return followUpAnswerSchema.parse(content);
   }
 
   private async requestJson(payload: { instruction: string; input: unknown }): Promise<unknown> {

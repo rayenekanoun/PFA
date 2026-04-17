@@ -10,6 +10,7 @@ interface CreateUserInput {
   email: string;
   passwordHash: string;
   displayName: string;
+  role?: UserRole;
 }
 
 @Injectable()
@@ -31,8 +32,14 @@ export class UsersService {
         email: input.email.toLowerCase(),
         passwordHash: input.passwordHash,
         displayName: input.displayName,
-        role: userCount === 0 ? UserRole.ADMIN : UserRole.USER,
+        role: input.role ?? (userCount === 0 ? UserRole.ADMIN : UserRole.USER),
       },
+    });
+  }
+
+  public async listUsers(): Promise<User[]> {
+    return this.prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
     });
   }
 

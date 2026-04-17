@@ -1,9 +1,6 @@
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
--- Enable TimescaleDB for measurement hypertables.
-CREATE EXTENSION IF NOT EXISTS timescaledb;
-
 -- CreateEnum
 CREATE TYPE "UserRole" AS ENUM ('USER', 'ADMIN');
 

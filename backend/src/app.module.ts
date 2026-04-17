@@ -1,12 +1,11 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AdminModule } from './admin/admin.module';
 import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
-import { RolesGuard } from './common/guards/roles.guard';
 import { validateEnv } from './config/env.schema';
 import { DiagnosticsModule } from './diagnostics/diagnostics.module';
 import { MqttModule } from './mqtt/mqtt.module';
@@ -45,6 +44,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
       },
     }),
     PrismaModule,
+    AdminModule,
     UsersModule,
     AuthModule,
     PidCatalogModule,
@@ -57,12 +57,6 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     SeedsModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
-    },
-  ],
+  providers: [AppService],
 })
 export class AppModule {}

@@ -13,6 +13,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main.js",
     "ai:smoke": "tsx scripts/ai-smoke.ts",
+    "db:seed:dev-admin": "tsx scripts/seed-reference-and-admin.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",

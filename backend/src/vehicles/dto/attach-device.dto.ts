@@ -2,10 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, Length } from 'class-validator';
 
 export class AttachDeviceDto {
-  @ApiProperty({ example: 'stm32-dev-001' })
+  @ApiProperty({ example: 'OBD-QR-001' })
   @IsString()
   @Length(1, 128)
-  public serialNumber!: string;
+  public deviceCode!: string;
 
   @ApiPropertyOptional({ example: 'fw-0.1.0' })
   @IsOptional()

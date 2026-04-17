@@ -64,10 +64,22 @@ Stop:
 powershell -ExecutionPolicy Bypass -File .\scripts\stop-all.ps1
 ```
 
+Reset the backend database and recreate the default development admin:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\reset-backend-db.ps1
+```
+
 Start backend + frontend together:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-fullstack.ps1
+```
+
+Start backend infrastructure + Nest watch mode for development:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-all-dev.ps1
 ```
 
 Purge Docker volumes:
@@ -95,6 +107,13 @@ Development helper:
 
 - set `DEV_DISABLE_OWNERSHIP_FILTER=true` to disable per-user ownership filtering locally
 - this flag is ignored in `production`
+- default development admin created by the reset script:
+  - email: `admin@pfa.local`
+  - password: `Admin12345!`
+- you can override the reset-script admin credentials with:
+  - `DEV_ADMIN_EMAIL`
+  - `DEV_ADMIN_PASSWORD`
+  - `DEV_ADMIN_DISPLAY_NAME`
 
 ## AI provider setup
 

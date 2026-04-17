@@ -1,6 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { complaintClassificationSchema, diagnosticReportSchema, type ClassificationInput, type ComplaintClassification, type DiagnosticReportPayload, type ReportGenerationInput } from '../ai.schemas';
+import {
+  complaintClassificationSchema,
+  diagnosticReportSchema,
+  followUpAnswerSchema,
+  type ClassificationInput,
+  type ComplaintClassification,
+  type DiagnosticReportPayload,
+  type FollowUpAnswerInput,
+  type FollowUpAnswerPayload,
+  type ReportGenerationInput,
+} from '../ai.schemas';
 import type { AiProvider } from './ai-provider.interface';
 
 @Injectable()
@@ -39,6 +49,22 @@ export class OpenAiCompatibleProvider implements AiProvider {
     ]);
 
     return diagnosticReportSchema.parse(content);
+  }
+
+  public async answerFollowUp(input: FollowUpAnswerInput): Promise<FollowUpAnswerPayload> {
+    const content = await this.requestJson([
+      {
+        role: 'system',
+        content:
+          'You answer a follow-up question about a previously completed vehicle diagnostic report. Use only the provided summary, report, and message history. If the answer is not directly supported by the provided data, say that you do not know based on the current vehicle/device data. Return strict JSON only with keys: answer, grounded, confidence, usedSources.',
+      },
+      {
+        role: 'user',
+        content: JSON.stringify(input),
+      },
+    ]);
+
+    return followUpAnswerSchema.parse(content);
   }
 
   private async requestJson(messages: Array<{ role: 'system' | 'user'; content: string }>): Promise<unknown> {

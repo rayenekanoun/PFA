@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { ClassificationInput, ComplaintClassification, DiagnosticReportPayload, ReportGenerationInput } from '../ai.schemas';
+import type {
+  ClassificationInput,
+  ComplaintClassification,
+  DiagnosticReportPayload,
+  FollowUpAnswerInput,
+  FollowUpAnswerPayload,
+  ReportGenerationInput,
+} from '../ai.schemas';
 import type { AiProvider } from './ai-provider.interface';
 
 const PROFILE_KEYWORDS: Record<string, string[]> = {
@@ -63,6 +70,54 @@ export class StubAiProvider implements AiProvider {
         ...(input.summary.missing.length > 0 ? [`Some requested measurements were unavailable: ${input.summary.missing.join(', ')}.`] : []),
       ],
       confidence: dtcSummaries.length > 0 ? 0.8 : 0.62,
+    };
+  }
+
+  public async answerFollowUp(input: FollowUpAnswerInput): Promise<FollowUpAnswerPayload> {
+    const normalizedQuestion = input.question.trim().toLowerCase();
+    const measurementMatches = input.summary.measurements.filter((measurement) => {
+      const key = measurement.key.toLowerCase();
+      const label = measurement.label.toLowerCase();
+      return normalizedQuestion.includes(key) || normalizedQuestion.includes(label);
+    });
+    const dtcMatches = input.summary.dtcs.filter((dtc) => {
+      const code = dtc.code.toLowerCase();
+      const title = dtc.humanTitle.toLowerCase();
+      return normalizedQuestion.includes(code) || normalizedQuestion.includes(title);
+    });
+
+    if (measurementMatches.length === 0 && dtcMatches.length === 0) {
+      return {
+        answer:
+          'I do not know based on the current vehicle and device data. The saved report does not contain enough matching information to answer that follow-up confidently.',
+        grounded: false,
+        confidence: 0.2,
+        usedSources: [],
+      };
+    }
+
+    const measurementText = measurementMatches.map((measurement) => {
+      const value =
+        measurement.value === null || measurement.value === undefined
+          ? 'unavailable'
+          : typeof measurement.value === 'object'
+            ? JSON.stringify(measurement.value)
+            : String(measurement.value);
+      return `${measurement.label}: ${value}${measurement.unit ? ` ${measurement.unit}` : ''} (${measurement.status})`;
+    });
+    const dtcText = dtcMatches.map((dtc) => `${dtc.code}: ${dtc.humanExplanation}`);
+
+    return {
+      answer: [measurementText.join('; '), dtcText.join('; ')]
+        .filter((entry) => entry.length > 0)
+        .join(' ')
+        .trim(),
+      grounded: true,
+      confidence: 0.74,
+      usedSources: [
+        ...(measurementMatches.length > 0 ? ['measurements'] : []),
+        ...(dtcMatches.length > 0 ? ['dtcs'] : []),
+      ],
     };
   }
 }

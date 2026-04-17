@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PidCatalogService } from '../pid-catalog/pid-catalog.service';
 import { AttachDeviceDto } from './dto/attach-device.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 
 @Injectable()
 export class VehiclesService {
@@ -62,31 +63,99 @@ export class VehiclesService {
     }
   }
 
-  public async attachDevice(user: AuthenticatedUser, vehicleId: string, dto: AttachDeviceDto) {
+  public async updateVehicle(user: AuthenticatedUser, vehicleId: string, dto: UpdateVehicleDto) {
+    await this.getOwnedVehicleWithDevice(user, vehicleId);
+
+    try {
+      return await this.prisma.vehicle.update({
+        where: { id: vehicleId },
+        data: {
+          mqttCarId: dto.mqttCarId,
+          vin: dto.vin,
+          make: dto.make,
+          model: dto.model,
+          year: dto.year,
+        },
+        include: {
+          device: true,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Vehicle update conflicts with an existing unique field.');
+      }
+      throw error;
+    }
+  }
+
+  public async deleteVehicle(user: AuthenticatedUser, vehicleId: string) {
     const vehicle = await this.getOwnedVehicleWithDevice(user, vehicleId);
 
-    const device = vehicle.device
-      ? await this.prisma.device.update({
-          where: { vehicleId: vehicle.id },
+    await this.prisma.$transaction(async (tx) => {
+      if (vehicle.device) {
+        await tx.device.update({
+          where: { id: vehicle.device.id },
           data: {
-            serialNumber: dto.serialNumber,
-            firmwareVersion: dto.firmwareVersion,
-            status: DeviceStatus.LINKED,
-          },
-        })
-      : await this.prisma.device.create({
-          data: {
-            vehicleId: vehicle.id,
-            serialNumber: dto.serialNumber,
-            firmwareVersion: dto.firmwareVersion,
-            status: DeviceStatus.LINKED,
+            vehicleId: null,
+            status: DeviceStatus.AVAILABLE,
           },
         });
+      }
 
-    const job = await this.enqueueCapabilityDiscovery(vehicle.id, device.id);
+      await tx.vehicle.delete({
+        where: { id: vehicle.id },
+      });
+    });
 
     return {
-      device,
+      deleted: true,
+      vehicleId: vehicle.id,
+    };
+  }
+
+  public async attachDevice(user: AuthenticatedUser, vehicleId: string, dto: AttachDeviceDto) {
+    const vehicle = await this.getOwnedVehicleWithDevice(user, vehicleId);
+    const device = await this.prisma.device.findUnique({
+      where: { deviceCode: dto.deviceCode },
+    });
+
+    if (!device) {
+      throw new NotFoundException('Device not found in the system inventory.');
+    }
+
+    if (device.status === DeviceStatus.DISABLED) {
+      throw new ConflictException('This device is disabled and cannot be claimed.');
+    }
+
+    if (device.vehicleId && device.vehicleId !== vehicle.id) {
+      throw new ConflictException('This device is already linked to another vehicle.');
+    }
+
+    const linkedDevice = await this.prisma.$transaction(async (tx) => {
+      if (vehicle.device && vehicle.device.id !== device.id) {
+        await tx.device.update({
+          where: { id: vehicle.device.id },
+          data: {
+            vehicleId: null,
+            status: DeviceStatus.AVAILABLE,
+          },
+        });
+      }
+
+      return tx.device.update({
+        where: { id: device.id },
+        data: {
+          vehicleId: vehicle.id,
+          firmwareVersion: dto.firmwareVersion ?? device.firmwareVersion,
+          status: DeviceStatus.LINKED,
+        },
+      });
+    });
+
+    const job = await this.enqueueCapabilityDiscovery(vehicle.id, linkedDevice.id);
+
+    return {
+      device: linkedDevice,
       capabilityDiscoveryJobId: job.id,
     };
   }

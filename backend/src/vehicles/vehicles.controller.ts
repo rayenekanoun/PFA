@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../common/types/authenticated-user.type';
 import { AttachDeviceDto } from './dto/attach-device.dto';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehiclesService } from './vehicles.service';
 
 @ApiTags('vehicles')
@@ -38,8 +39,27 @@ export class VehiclesController {
     return this.vehiclesService.createVehicle(user, dto);
   }
 
+  @Patch(':vehicleId')
+  @ApiOperation({ summary: 'Update a vehicle owned by the current user.' })
+  public updateVehicle(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('vehicleId') vehicleId: string,
+    @Body() dto: UpdateVehicleDto,
+  ) {
+    return this.vehiclesService.updateVehicle(user, vehicleId, dto);
+  }
+
+  @Delete(':vehicleId')
+  @ApiOperation({ summary: 'Delete a vehicle owned by the current user.' })
+  public deleteVehicle(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('vehicleId') vehicleId: string,
+  ) {
+    return this.vehiclesService.deleteVehicle(user, vehicleId);
+  }
+
   @Post(':vehicleId/devices')
-  @ApiOperation({ summary: 'Attach or update the active device linked to a vehicle.' })
+  @ApiOperation({ summary: 'Claim an existing system device by code and link it to a vehicle.' })
   public attachDevice(
     @CurrentUser() user: AuthenticatedUser,
     @Param('vehicleId') vehicleId: string,

@@ -101,8 +101,16 @@ export const diagnosticReportSchema = z.object({
   confidence: confidenceSchema,
 });
 
+export const followUpAnswerSchema = z.object({
+  answer: nonEmptyStringSchema,
+  grounded: z.boolean(),
+  confidence: confidenceSchema,
+  usedSources: stringListSchema.default([]),
+});
+
 export type ComplaintClassification = z.infer<typeof complaintClassificationSchema>;
 export type DiagnosticReportPayload = z.infer<typeof diagnosticReportSchema>;
+export type FollowUpAnswerPayload = z.infer<typeof followUpAnswerSchema>;
 
 export interface ClassificationInput {
   complaintText: string;
@@ -111,4 +119,14 @@ export interface ClassificationInput {
 
 export interface ReportGenerationInput {
   summary: StructuredDiagnosticSummary;
+}
+
+export interface FollowUpAnswerInput {
+  question: string;
+  summary: StructuredDiagnosticSummary;
+  report: DiagnosticReportPayload;
+  previousMessages: Array<{
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+  }>;
 }

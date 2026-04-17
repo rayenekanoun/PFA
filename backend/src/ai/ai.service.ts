@@ -1,6 +1,16 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { complaintClassificationSchema, diagnosticReportSchema, type ClassificationInput, type ComplaintClassification, type DiagnosticReportPayload, type ReportGenerationInput } from './ai.schemas';
+import {
+  complaintClassificationSchema,
+  diagnosticReportSchema,
+  followUpAnswerSchema,
+  type ClassificationInput,
+  type ComplaintClassification,
+  type DiagnosticReportPayload,
+  type FollowUpAnswerInput,
+  type FollowUpAnswerPayload,
+  type ReportGenerationInput,
+} from './ai.schemas';
 import type { AiProvider } from './providers/ai-provider.interface';
 import { StubAiProvider } from './providers/stub-ai.provider';
 
@@ -47,6 +57,23 @@ export class AiService {
         `Falling back to stub diagnostic report generation because the configured provider failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       return diagnosticReportSchema.parse(await this.stubProvider.generateReport(input));
+    }
+  }
+
+  public async answerFollowUp(input: FollowUpAnswerInput): Promise<FollowUpAnswerPayload> {
+    try {
+      return followUpAnswerSchema.parse(await this.provider.answerFollowUp(input));
+    } catch (error) {
+      if (!this.shouldFallbackToStub()) {
+        throw new Error(
+          `AI provider '${this.getProviderName()}' failed during follow-up answering: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+
+      this.logger.warn(
+        `Falling back to stub follow-up answering because the configured provider failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return followUpAnswerSchema.parse(await this.stubProvider.answerFollowUp(input));
     }
   }
 
