@@ -47,6 +47,7 @@ function AppRoutes() {
         <Route element={<DevicesPage />} path="/devices" />
         <Route element={<ConversationsPage />} path="/conversations" />
         <Route element={<ReportsPage />} path="/reports" />
+        <Route element={<SettingsPage />} path="/admin" />
         <Route element={<SettingsPage />} path="/settings" />
       </Route>
 

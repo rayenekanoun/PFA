@@ -61,14 +61,14 @@ describe('VehiclesService', () => {
 
     const result = await service.createVehicle(
       { sub: 'user-1', email: 'u@example.com', role: UserRole.USER },
-      { mqttCarId: 'sim-demo' },
+      { make: 'Toyota', model: 'Corolla', year: 2017 },
     );
 
     expect(prismaMock.vehicle.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           userId: 'user-1',
-          mqttCarId: 'sim-demo',
+          mqttCarId: expect.stringMatching(/^car-/),
           status: VehicleStatus.ACTIVE,
         }),
       }),
@@ -81,14 +81,14 @@ describe('VehiclesService', () => {
       new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
         code: 'P2002',
         clientVersion: 'test',
-        meta: { target: ['mqttCarId'] },
+        meta: { target: ['vin'] },
       }),
     );
 
     await expect(
       service.createVehicle(
         { sub: 'user-1', email: 'u@example.com', role: UserRole.USER },
-        { mqttCarId: 'sim-demo' },
+        { vin: '1HGCM82633A004352' },
       ),
     ).rejects.toThrow('Vehicle with the same unique field already exists');
   });
@@ -189,6 +189,55 @@ describe('VehiclesService', () => {
         'veh-1',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('unlinks the current device from a vehicle', async () => {
+    prismaMock.vehicle.findFirst.mockResolvedValue({
+      id: 'veh-1',
+      userId: 'user-1',
+      mqttCarId: 'sim-demo',
+      vin: null,
+      make: null,
+      model: null,
+      year: null,
+      status: VehicleStatus.ACTIVE,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      device: {
+        id: 'dev-1',
+        deviceCode: 'OBD-QR-001',
+        vehicleId: 'veh-1',
+        serialNumber: 'STM32-001',
+        firmwareVersion: '1.0.0',
+        status: DeviceStatus.LINKED,
+      },
+    });
+    prismaMock.device.update.mockResolvedValue({
+      id: 'dev-1',
+      deviceCode: 'OBD-QR-001',
+      vehicleId: null,
+      serialNumber: 'STM32-001',
+      firmwareVersion: '1.0.0',
+      status: DeviceStatus.AVAILABLE,
+    });
+
+    const result = await service.detachDevice(
+      { sub: 'user-1', email: 'u@example.com', role: UserRole.USER },
+      'veh-1',
+    );
+
+    expect(prismaMock.device.update).toHaveBeenCalledWith({
+      where: { id: 'dev-1' },
+      data: {
+        vehicleId: null,
+        status: DeviceStatus.AVAILABLE,
+      },
+    });
+    expect(result).toEqual({
+      detached: true,
+      vehicleId: 'veh-1',
+      deviceId: 'dev-1',
+    });
   });
 
   it('rejects access when non-admin user does not own the vehicle', async () => {

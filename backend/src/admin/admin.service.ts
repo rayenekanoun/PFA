@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { DeviceStatus, DiagnosticRequestStatus, Prisma, UserRole } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import { DeviceStatus, DiagnosticRequestStatus, Prisma, UserRole, VehicleStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminCreateUserDto } from '../users/dto/admin-create-user.dto';
@@ -18,10 +19,12 @@ export class AdminService {
       totalUsers,
       totalAdmins,
       totalVehicles,
+      activeVehicles,
       totalDevices,
       totalConversations,
       totalMessages,
       totalRequests,
+      totalReports,
       requestsByStatus,
       usersWithVehicles,
       devicesByStatus,
@@ -30,14 +33,18 @@ export class AdminService {
       profileUsage,
       confidenceAggregates,
       reportConfidenceRows,
+      runRows,
+      recentReports,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.user.count({ where: { role: UserRole.ADMIN } }),
       this.prisma.vehicle.count(),
+      this.prisma.vehicle.count({ where: { status: VehicleStatus.ACTIVE } }),
       this.prisma.device.count(),
       this.prisma.diagnosticConversation.count(),
       this.prisma.diagnosticConversationMessage.count(),
       this.prisma.diagnosticRequest.count(),
+      this.prisma.diagnosticReport.count(),
       this.prisma.diagnosticRequest.groupBy({
         by: ['status'],
         _count: { _all: true },
@@ -90,6 +97,39 @@ export class AdminService {
           reportJson: true,
         },
       }),
+      this.prisma.diagnosticRun.findMany({
+        select: {
+          status: true,
+          createdAt: true,
+          startedAt: true,
+          respondedAt: true,
+        },
+      }),
+      this.prisma.diagnosticReport.findMany({
+        take: 6,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          diagnosticRequestId: true,
+          createdAt: true,
+          reportJson: true,
+          diagnosticRequest: {
+            select: {
+              complaintText: true,
+              classificationConfidence: true,
+              vehicle: {
+                select: {
+                  id: true,
+                  mqttCarId: true,
+                  make: true,
+                  model: true,
+                  year: true,
+                },
+              },
+            },
+          },
+        },
+      }),
     ]);
 
     const profileIds = profileUsage
@@ -123,6 +163,25 @@ export class AdminService {
         ? reportConfidenceValues.reduce((sum, value) => sum + value, 0) / reportConfidenceValues.length
         : null;
 
+    const completedRunDurations = runRows
+      .map((run) => {
+        if (!run.startedAt || !run.respondedAt) {
+          return null;
+        }
+
+        return run.respondedAt.getTime() - run.startedAt.getTime();
+      })
+      .filter((value): value is number => value !== null && value >= 0);
+    const averageResponseTimeMs =
+      completedRunDurations.length > 0
+        ? completedRunDurations.reduce((sum, value) => sum + value, 0) / completedRunDurations.length
+        : null;
+    const respondedRuns = runRows.filter((run) =>
+      ['RESPONDED', 'PARTIAL'].includes(run.status),
+    ).length;
+    const timeoutRuns = runRows.filter((run) => run.status === 'TIMEOUT').length;
+    const failedRuns = runRows.filter((run) => run.status === 'FAILED').length;
+
     const recentUsers = await this.prisma.user.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
@@ -142,16 +201,20 @@ export class AdminService {
         admins: totalAdmins,
         clients: totalUsers - totalAdmins,
         vehicles: totalVehicles,
+        activeVehicles,
+        inactiveVehicles: totalVehicles - activeVehicles,
         devices: totalDevices,
         linkedDevices,
         unassignedDevices: totalDevices - linkedDevices,
         diagnosticRequests: totalRequests,
+        reports: totalReports,
         conversations: totalConversations,
         conversationMessages: totalMessages,
       },
       rates: {
         averageClassificationConfidence: confidenceAggregates._avg.classificationConfidence ?? null,
         averageReportConfidence: avgReportConfidence,
+        averageResponseTimeMs,
         averageSupportedPidCountPerVehicle:
           supportedPidVehicleGroups.length > 0
             ? supportedPidVehicleGroups.reduce((sum, entry) => sum + entry._count._all, 0) /
@@ -159,6 +222,13 @@ export class AdminService {
             : 0,
         deviceUtilizationRate: totalDevices > 0 ? linkedDevices / totalDevices : 0,
         usersWithVehiclesRate: totalUsers > 0 ? usersWithVehicles / totalUsers : 0,
+        runResponseRate: runRows.length > 0 ? respondedRuns / runRows.length : 0,
+      },
+      runStats: {
+        totalRuns: runRows.length,
+        respondedRuns,
+        timeoutRuns,
+        failedRuns,
       },
       requestStatusCounts,
       deviceStatusCounts,
@@ -169,6 +239,19 @@ export class AdminService {
         requestCount: entry._count._all,
       })),
       recentUsers,
+      recentReports: recentReports.map((report) => {
+        const payload = report.reportJson as Record<string, unknown>;
+        return {
+          id: report.id,
+          requestId: report.diagnosticRequestId,
+          createdAt: report.createdAt,
+          summary:
+            typeof payload.summary === 'string' ? payload.summary : report.diagnosticRequest.complaintText,
+          confidence:
+            typeof payload.confidence === 'number' ? payload.confidence : report.diagnosticRequest.classificationConfidence,
+          vehicle: report.diagnosticRequest.vehicle,
+        };
+      }),
     };
   }
 
@@ -332,33 +415,43 @@ export class AdminService {
   public async createVehicleForUser(userId: string, dto: CreateVehicleDto) {
     await this.getUser(userId);
 
-    try {
-      return await this.prisma.vehicle.create({
-        data: {
-          userId,
-          mqttCarId: dto.mqttCarId,
-          vin: dto.vin,
-          make: dto.make,
-          model: dto.model,
-          year: dto.year,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              displayName: true,
-            },
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await this.prisma.vehicle.create({
+          data: {
+            userId,
+            mqttCarId: this.generateMqttCarId(dto),
+            vin: dto.vin,
+            make: dto.make,
+            model: dto.model,
+            year: dto.year,
           },
-          device: true,
-        },
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('Vehicle conflicts with an existing unique field.');
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                displayName: true,
+              },
+            },
+            device: true,
+          },
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          const targetFields = Array.isArray(error.meta?.target)
+            ? (error.meta?.target as string[]).join(', ')
+            : 'unknown';
+          if (targetFields.includes('mqttCarId')) {
+            continue;
+          }
+          throw new ConflictException('Vehicle conflicts with an existing unique field.');
+        }
+        throw error;
       }
-      throw error;
     }
+
+    throw new ConflictException('Unable to allocate a unique MQTT vehicle identifier. Please retry.');
   }
 
   public async updateVehicle(vehicleId: string, dto: UpdateVehicleDto) {
@@ -531,6 +624,22 @@ export class AdminService {
       deleted: true,
       deviceId,
     };
+  }
+
+  private generateMqttCarId(dto: CreateVehicleDto): string {
+    const baseParts = [
+      dto.year?.toString() ?? '',
+      dto.make ?? '',
+      dto.model ?? '',
+      dto.vin ? dto.vin.slice(-6) : '',
+    ]
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+      .map((value) => value.replace(/[^a-z0-9]+/g, '-'))
+      .filter(Boolean);
+
+    const base = baseParts.join('-') || 'vehicle';
+    return `car-${base}-${randomUUID().slice(0, 8)}`.slice(0, 128);
   }
 
   public async seedMissingDeviceCodes() {

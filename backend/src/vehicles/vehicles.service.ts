@@ -1,5 +1,6 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
 import { DeviceStatus, Prisma, UserRole, VehicleStatus } from '@prisma/client';
@@ -37,30 +38,37 @@ export class VehiclesService {
   }
 
   public async createVehicle(user: AuthenticatedUser, dto: CreateVehicleDto) {
-    try {
-      return await this.prisma.vehicle.create({
-        data: {
-          userId: user.sub,
-          mqttCarId: dto.mqttCarId,
-          vin: dto.vin,
-          make: dto.make,
-          model: dto.model,
-          year: dto.year,
-          status: VehicleStatus.ACTIVE,
-        },
-        include: {
-          device: true,
-        },
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        const targetFields = Array.isArray(error.meta?.target)
-          ? (error.meta?.target as string[]).join(', ')
-          : 'mqttCarId or vin';
-        throw new ConflictException(`Vehicle with the same unique field already exists (${targetFields}).`);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await this.prisma.vehicle.create({
+          data: {
+            userId: user.sub,
+            mqttCarId: this.generateMqttCarId(dto),
+            vin: dto.vin,
+            make: dto.make,
+            model: dto.model,
+            year: dto.year,
+            status: VehicleStatus.ACTIVE,
+          },
+          include: {
+            device: true,
+          },
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          const targetFields = Array.isArray(error.meta?.target)
+            ? (error.meta?.target as string[]).join(', ')
+            : 'mqttCarId or vin';
+          if (targetFields.includes('mqttCarId')) {
+            continue;
+          }
+          throw new ConflictException(`Vehicle with the same unique field already exists (${targetFields}).`);
+        }
+        throw error;
       }
-      throw error;
     }
+
+    throw new ConflictException('Unable to allocate a unique MQTT vehicle identifier. Please retry.');
   }
 
   public async updateVehicle(user: AuthenticatedUser, vehicleId: string, dto: UpdateVehicleDto) {
@@ -160,6 +168,28 @@ export class VehiclesService {
     };
   }
 
+  public async detachDevice(user: AuthenticatedUser, vehicleId: string) {
+    const vehicle = await this.getOwnedVehicleWithDevice(user, vehicleId);
+
+    if (!vehicle.device) {
+      throw new BadRequestException('Vehicle does not have a linked device.');
+    }
+
+    const device = await this.prisma.device.update({
+      where: { id: vehicle.device.id },
+      data: {
+        vehicleId: null,
+        status: DeviceStatus.AVAILABLE,
+      },
+    });
+
+    return {
+      detached: true,
+      vehicleId: vehicle.id,
+      deviceId: device.id,
+    };
+  }
+
   public async discoverCapabilities(user: AuthenticatedUser, vehicleId: string) {
     const vehicle = await this.getOwnedVehicleWithDevice(user, vehicleId);
 
@@ -237,5 +267,21 @@ export class VehiclesService {
     }
 
     return this.configService.get<boolean>('DEV_DISABLE_OWNERSHIP_FILTER', false) === true;
+  }
+
+  private generateMqttCarId(dto: CreateVehicleDto): string {
+    const baseParts = [
+      dto.year?.toString() ?? '',
+      dto.make ?? '',
+      dto.model ?? '',
+      dto.vin ? dto.vin.slice(-6) : '',
+    ]
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+      .map((value) => value.replace(/[^a-z0-9]+/g, '-'))
+      .filter(Boolean);
+
+    const base = baseParts.join('-') || 'vehicle';
+    return `car-${base}-${randomUUID().slice(0, 8)}`.slice(0, 128);
   }
 }

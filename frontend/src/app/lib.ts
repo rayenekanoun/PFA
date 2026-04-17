@@ -128,7 +128,7 @@ export function statusTone(
   status: string,
 ): "neutral" | "info" | "warning" | "success" | "danger" {
   const normalized = status.toUpperCase();
-  if (normalized.includes("COMPLETED")) return "success";
+  if (normalized.includes("COMPLETED") || normalized.includes("LINKED")) return "success";
   if (normalized.includes("FAILED") || normalized.includes("ERROR"))
     return "danger";
   if (normalized.includes("RUNNING") || normalized.includes("DISCOVER"))

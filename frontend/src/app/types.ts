@@ -15,7 +15,8 @@ export interface AuthSession {
 
 export interface Device {
   id: string;
-  serialNumber: string;
+  deviceCode: string;
+  serialNumber: string | null;
   firmwareVersion: string | null;
   status: string;
   capabilitiesDiscoveredAt: string | null;
@@ -155,4 +156,121 @@ export interface SupportedPidResponse {
   vehicleId: string;
   lastDiscoveryAt: string | null;
   supportedPids: SupportedPidRow[];
+}
+
+export interface AdminDashboardStats {
+  generatedAt: string;
+  totals: {
+    users: number;
+    admins: number;
+    clients: number;
+    vehicles: number;
+    activeVehicles: number;
+    inactiveVehicles: number;
+    devices: number;
+    linkedDevices: number;
+    unassignedDevices: number;
+    diagnosticRequests: number;
+    reports: number;
+    conversations: number;
+    conversationMessages: number;
+  };
+  rates: {
+    averageClassificationConfidence: number | null;
+    averageReportConfidence: number | null;
+    averageResponseTimeMs: number | null;
+    averageSupportedPidCountPerVehicle: number;
+    deviceUtilizationRate: number;
+    usersWithVehiclesRate: number;
+    runResponseRate: number;
+  };
+  runStats: {
+    totalRuns: number;
+    respondedRuns: number;
+    timeoutRuns: number;
+    failedRuns: number;
+  };
+  requestStatusCounts: Record<string, number>;
+  deviceStatusCounts: Record<string, number>;
+  topProfiles: Array<{
+    profileId: string | null;
+    code: string | null;
+    name: string | null;
+    requestCount: number;
+  }>;
+  recentUsers: Array<{
+    id: string;
+    email: string;
+    displayName: string;
+    role: "ADMIN" | "USER";
+    createdAt: string;
+  }>;
+  recentReports: Array<{
+    id: string;
+    requestId: string;
+    createdAt: string;
+    summary: string;
+    confidence: number | null;
+    vehicle: {
+      id: string;
+      mqttCarId: string;
+      vin: string | null;
+      make: string | null;
+      model: string | null;
+      year: number | null;
+    };
+  }>;
+}
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  displayName: string;
+  role: "ADMIN" | "USER";
+  createdAt: string;
+  updatedAt: string;
+  stats: {
+    vehicleCount: number;
+    diagnosticRequestCount: number;
+    conversationCount: number;
+    averageClassificationConfidence: number | null;
+  };
+  vehicles: Array<{
+    id: string;
+    mqttCarId: string;
+    make: string | null;
+    model: string | null;
+    year: number | null;
+    status: string;
+    device: {
+      id: string;
+      deviceCode: string;
+      status: string;
+    } | null;
+  }>;
+}
+
+export interface AdminDeviceRow {
+  id: string;
+  deviceCode: string;
+  serialNumber: string | null;
+  firmwareVersion: string | null;
+  status: string;
+  capabilitiesDiscoveredAt: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  vehicle: {
+    id: string;
+    mqttCarId: string;
+    vin: string | null;
+    make: string | null;
+    model: string | null;
+    year: number | null;
+    user: {
+      id: string;
+      email: string;
+      displayName: string;
+    };
+  } | null;
 }

@@ -68,6 +68,15 @@ export class VehiclesController {
     return this.vehiclesService.attachDevice(user, vehicleId, dto);
   }
 
+  @Delete(':vehicleId/devices')
+  @ApiOperation({ summary: 'Unlink the currently attached device from a vehicle.' })
+  public detachDevice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('vehicleId') vehicleId: string,
+  ) {
+    return this.vehiclesService.detachDevice(user, vehicleId);
+  }
+
   @Post(':vehicleId/discover-capabilities')
   @ApiOperation({ summary: 'Queue capability discovery for a vehicle.' })
   public discoverCapabilities(

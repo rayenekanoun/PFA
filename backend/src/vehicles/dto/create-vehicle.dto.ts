@@ -1,12 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 
 export class CreateVehicleDto {
-  @ApiProperty({ example: 'sim-demo' })
-  @IsString()
-  @Length(1, 128)
-  public mqttCarId!: string;
-
   @ApiPropertyOptional({ example: '1HGCM82633A004352' })
   @IsOptional()
   @IsString()
