@@ -53,6 +53,7 @@ describe('DiagnosticNormalizerService', () => {
     const response = {
       requestId: 'req-1',
       planId: 'plan-1',
+      deviceId: 'dev-1',
       carId: 'sim-demo',
       generatedAt: '2026-04-08T10:00:00.000Z',
       status: 'ok' as const,

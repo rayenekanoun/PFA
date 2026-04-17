@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   compactText,
   downloadReportPdf,
@@ -7,12 +7,21 @@ import {
   formatRelativeTime,
   statusTone,
   vehicleDisplayName,
-} from './lib';
-import type { AuthMode, DiagnosticDtc, DiagnosticMeasurement, SupportedPidRow } from './types';
-import { useAppModel } from './useAppModel';
+} from "./lib";
+import type {
+  AuthMode,
+  DiagnosticDtc,
+  DiagnosticMeasurement,
+  SupportedPidRow,
+} from "./types";
+import { useAppModel } from "./useAppModel";
 
 function StatusBadge({ status }: { status: string }) {
-  return <span className={`status-badge ${statusTone(status)}`}>{status.replaceAll('_', ' ')}</span>;
+  return (
+    <span className={`status-badge ${statusTone(status)}`}>
+      {status.replaceAll("_", " ")}
+    </span>
+  );
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
@@ -34,15 +43,19 @@ function SkeletonRows({ count = 4 }: { count?: number }) {
   );
 }
 
-function MeasurementGrid({ measurements }: { measurements: DiagnosticMeasurement[] }) {
+function MeasurementGrid({
+  measurements,
+}: {
+  measurements: DiagnosticMeasurement[];
+}) {
   return (
     <div className="measurement-grid">
       {measurements.map((measurement) => (
         <article key={`${measurement.key}-${measurement.label}`}>
           <p>{measurement.label}</p>
           <strong>
-            {String(measurement.value ?? 'n/a')}
-            {measurement.unit ? ` ${measurement.unit}` : ''}
+            {String(measurement.value ?? "n/a")}
+            {measurement.unit ? ` ${measurement.unit}` : ""}
           </strong>
         </article>
       ))}
@@ -78,19 +91,23 @@ function DtcTable({ dtcs }: { dtcs: DiagnosticDtc[] }) {
 export function AuthPage({ mode }: { mode: AuthMode }) {
   const { authenticate, busy } = useAppModel();
   const [error, setError] = useState<string | null>(null);
-  const registerMode = mode === 'register';
+  const registerMode = mode === "register";
 
   async function handleSubmit(formData: FormData) {
     try {
       setError(null);
       await authenticate(
         mode,
-        String(formData.get('email') ?? ''),
-        String(formData.get('password') ?? ''),
-        String(formData.get('displayName') ?? ''),
+        String(formData.get("email") ?? ""),
+        String(formData.get("password") ?? ""),
+        String(formData.get("displayName") ?? ""),
       );
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to authenticate.');
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to authenticate.",
+      );
     }
   }
 
@@ -100,15 +117,20 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         <div className="brand-chip">Connected Vehicle Diagnostics</div>
         <h1>Operational workspace for diagnostic teams.</h1>
         <p>
-          Manage vehicles, link hardware, run requests, and review structured reports in one enterprise interface.
+          Manage vehicles, link hardware, run requests, and review structured
+          reports in one enterprise interface.
         </p>
       </section>
 
       <section className="auth-card-wrap">
         <article className="auth-card">
           <div className="auth-switch">
-            <Link className={registerMode ? '' : 'active'} to="/login">Login</Link>
-            <Link className={registerMode ? 'active' : ''} to="/signup">Sign up</Link>
+            <Link className={registerMode ? "" : "active"} to="/login">
+              Login
+            </Link>
+            <Link className={registerMode ? "active" : ""} to="/signup">
+              Sign up
+            </Link>
           </div>
 
           <form
@@ -138,7 +160,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
             {error && <p className="inline-error">{error}</p>}
 
             <button className="button primary" disabled={busy} type="submit">
-              {busy ? 'Please wait...' : registerMode ? 'Create account' : 'Sign in'}
+              {busy
+                ? "Please wait..."
+                : registerMode
+                  ? "Create account"
+                  : "Sign in"}
             </button>
           </form>
         </article>
@@ -176,7 +202,11 @@ export function OverviewPage() {
       <section className="panel">
         <header>
           <h2>Recent activity</h2>
-          <span>{requests.length ? `${Math.min(8, requests.length)} latest requests` : 'No activity yet'}</span>
+          <span>
+            {requests.length
+              ? `${Math.min(8, requests.length)} latest requests`
+              : "No activity yet"}
+          </span>
         </header>
 
         {!requests.length && (
@@ -196,7 +226,9 @@ export function OverviewPage() {
                 </div>
                 <div className="activity-meta">
                   <StatusBadge status={request.status} />
-                  <small>{formatRelativeTime(request.updatedAt || request.createdAt)}</small>
+                  <small>
+                    {formatRelativeTime(request.updatedAt || request.createdAt)}
+                  </small>
                 </div>
               </li>
             ))}
@@ -225,7 +257,9 @@ export function OverviewPage() {
                   <strong>{compactText(request.complaintText, 95)}</strong>
                   <p>{vehicleDisplayName(request.vehicle)}</p>
                 </div>
-                <small>{formatDateTime(request.completedAt || request.updatedAt)}</small>
+                <small>
+                  {formatDateTime(request.completedAt || request.updatedAt)}
+                </small>
               </li>
             ))}
           </ul>
@@ -245,27 +279,33 @@ export function CarsPage() {
     updateVehicleDraft,
     createVehicle,
   } = useAppModel();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
 
   const filtered = useMemo(
     () =>
       vehicles.filter((vehicle) => {
-        const searchTarget = `${vehicle.mqttCarId} ${vehicle.vin ?? ''} ${vehicle.make ?? ''} ${vehicle.model ?? ''}`.toLowerCase();
+        const searchTarget =
+          `${vehicle.mqttCarId} ${vehicle.vin ?? ""} ${vehicle.make ?? ""} ${vehicle.model ?? ""}`.toLowerCase();
         return searchTarget.includes(query.trim().toLowerCase());
       }),
     [query, vehicles],
   );
 
-  const selected = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null;
+  const selected =
+    vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null;
 
   return (
     <div className="split-layout">
       <section className="panel list-panel">
         <header>
           <h2>Vehicle list</h2>
-          <button className="button primary" onClick={() => setShowCreate((value) => !value)} type="button">
-            {showCreate ? 'Close' : 'Create car'}
+          <button
+            className="button primary"
+            onClick={() => setShowCreate((value) => !value)}
+            type="button"
+          >
+            {showCreate ? "Close" : "Create car"}
           </button>
         </header>
 
@@ -282,51 +322,84 @@ export function CarsPage() {
                 MQTT car ID
                 <input
                   value={vehicleDraft.mqttCarId}
-                  onChange={(event) => updateVehicleDraft('mqttCarId', event.target.value)}
+                  onChange={(event) =>
+                    updateVehicleDraft("mqttCarId", event.target.value)
+                  }
                 />
               </label>
               <label>
                 VIN
-                <input value={vehicleDraft.vin} onChange={(event) => updateVehicleDraft('vin', event.target.value)} />
+                <input
+                  value={vehicleDraft.vin}
+                  onChange={(event) =>
+                    updateVehicleDraft("vin", event.target.value)
+                  }
+                />
               </label>
             </div>
 
             <div className="field-row">
               <label>
                 Make
-                <input value={vehicleDraft.make} onChange={(event) => updateVehicleDraft('make', event.target.value)} />
+                <input
+                  value={vehicleDraft.make}
+                  onChange={(event) =>
+                    updateVehicleDraft("make", event.target.value)
+                  }
+                />
               </label>
               <label>
                 Model
-                <input value={vehicleDraft.model} onChange={(event) => updateVehicleDraft('model', event.target.value)} />
+                <input
+                  value={vehicleDraft.model}
+                  onChange={(event) =>
+                    updateVehicleDraft("model", event.target.value)
+                  }
+                />
               </label>
               <label>
                 Year
-                <input value={vehicleDraft.year} onChange={(event) => updateVehicleDraft('year', event.target.value)} />
+                <input
+                  value={vehicleDraft.year}
+                  onChange={(event) =>
+                    updateVehicleDraft("year", event.target.value)
+                  }
+                />
               </label>
             </div>
 
-            <button className="button primary" disabled={busy} type="submit">Create vehicle</button>
+            <button className="button primary" disabled={busy} type="submit">
+              Create vehicle
+            </button>
           </form>
         )}
 
         <label className="search-input">
           Search vehicles
-          <input placeholder="Search by VIN, MQTT ID, make, model" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input
+            placeholder="Search by VIN, MQTT ID, make, model"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         </label>
 
-        {!filtered.length && <EmptyState title="No vehicles found" body="Adjust filters or create a new vehicle." />}
+        {!filtered.length && (
+          <EmptyState
+            title="No vehicles found"
+            body="Adjust filters or create a new vehicle."
+          />
+        )}
 
         <div className="list-scroll">
           {filtered.map((vehicle) => (
             <button
-              className={`list-item ${selectedVehicleId === vehicle.id ? 'selected' : ''}`}
+              className={`list-item ${selectedVehicleId === vehicle.id ? "selected" : ""}`}
               key={vehicle.id}
               onClick={() => setSelectedVehicleId(vehicle.id)}
               type="button"
             >
               <strong>{vehicleDisplayName(vehicle)}</strong>
-              <p>{vehicle.vin || 'VIN unavailable'}</p>
+              <p>{vehicle.vin || "VIN unavailable"}</p>
               <small>{vehicle.mqttCarId}</small>
             </button>
           ))}
@@ -345,7 +418,7 @@ export function CarsPage() {
           <>
             <header>
               <h2>{vehicleDisplayName(selected)}</h2>
-              <StatusBadge status={selected.device?.status ?? 'NO_DEVICE'} />
+              <StatusBadge status={selected.device?.status ?? "NO_DEVICE"} />
             </header>
 
             <dl className="detail-grid">
@@ -355,19 +428,21 @@ export function CarsPage() {
               </div>
               <div>
                 <dt>VIN</dt>
-                <dd>{selected.vin || 'Not provided'}</dd>
+                <dd>{selected.vin || "Not provided"}</dd>
               </div>
               <div>
                 <dt>Make / model</dt>
-                <dd>{selected.make || '-'} {selected.model || '-'}</dd>
+                <dd>
+                  {selected.make || "-"} {selected.model || "-"}
+                </dd>
               </div>
               <div>
                 <dt>Year</dt>
-                <dd>{selected.year || 'Unknown'}</dd>
+                <dd>{selected.year || "Unknown"}</dd>
               </div>
               <div>
                 <dt>Linked device</dt>
-                <dd>{selected.device?.serialNumber || 'No linked device'}</dd>
+                <dd>{selected.device?.serialNumber || "No linked device"}</dd>
               </div>
               <div>
                 <dt>Created at</dt>
@@ -381,15 +456,20 @@ export function CarsPage() {
   );
 }
 
-function groupPids(rows: SupportedPidRow[]): Array<{ category: string; rows: SupportedPidRow[] }> {
+function groupPids(
+  rows: SupportedPidRow[],
+): Array<{ category: string; rows: SupportedPidRow[] }> {
   const grouped = new Map<string, SupportedPidRow[]>();
   for (const row of rows) {
-    const category = row.pid.key.split('_')[0]?.toUpperCase() || 'GENERAL';
+    const category = row.pid.key.split("_")[0]?.toUpperCase() || "GENERAL";
     const existing = grouped.get(category) ?? [];
     existing.push(row);
     grouped.set(category, existing);
   }
-  return [...grouped.entries()].map(([category, entries]) => ({ category, rows: entries }));
+  return [...grouped.entries()].map(([category, entries]) => ({
+    category,
+    rows: entries,
+  }));
 }
 
 export function DevicesPage() {
@@ -402,20 +482,30 @@ export function DevicesPage() {
     fetchSupportedPids,
     supportedByVehicle,
   } = useAppModel();
-  const [queryByVehicle, setQueryByVehicle] = useState<Record<string, string>>({});
+  const [queryByVehicle, setQueryByVehicle] = useState<Record<string, string>>(
+    {},
+  );
 
   if (!vehicles.length) {
-    return <EmptyState title="No vehicles" body="Add cars first. Devices are managed per vehicle." />;
+    return (
+      <EmptyState
+        title="No vehicles"
+        body="Add cars first. Devices are managed per vehicle."
+      />
+    );
   }
 
   return (
     <div className="stack-layout">
       {vehicles.map((vehicle) => {
         const pidData = supportedByVehicle[vehicle.id];
-        const search = (queryByVehicle[vehicle.id] ?? '').trim().toLowerCase();
-        const supported = (pidData?.supportedPids ?? []).filter((row) => row.isSupported);
+        const search = (queryByVehicle[vehicle.id] ?? "").trim().toLowerCase();
+        const supported = (pidData?.supportedPids ?? []).filter(
+          (row) => row.isSupported,
+        );
         const filtered = supported.filter((row) => {
-          const target = `${row.pid.key} ${row.pid.label} ${row.pid.fullCode}`.toLowerCase();
+          const target =
+            `${row.pid.key} ${row.pid.label} ${row.pid.fullCode}`.toLowerCase();
           return target.includes(search);
         });
         const grouped = groupPids(filtered);
@@ -424,7 +514,7 @@ export function DevicesPage() {
           <section className="panel" key={vehicle.id}>
             <header>
               <h2>{vehicleDisplayName(vehicle)}</h2>
-              <StatusBadge status={vehicle.device?.status ?? 'NO_DEVICE'} />
+              <StatusBadge status={vehicle.device?.status ?? "NO_DEVICE"} />
             </header>
 
             <div className="device-grid">
@@ -433,13 +523,20 @@ export function DevicesPage() {
                   <label>
                     Device serial
                     <input
-                      value={deviceDrafts[vehicle.id]?.serialNumber ?? vehicle.device?.serialNumber ?? ''}
+                      value={
+                        deviceDrafts[vehicle.id]?.serialNumber ??
+                        vehicle.device?.serialNumber ??
+                        ""
+                      }
                       onChange={(event) =>
                         setDeviceDrafts((current) => ({
                           ...current,
                           [vehicle.id]: {
                             serialNumber: event.target.value,
-                            firmwareVersion: current[vehicle.id]?.firmwareVersion ?? vehicle.device?.firmwareVersion ?? '',
+                            firmwareVersion:
+                              current[vehicle.id]?.firmwareVersion ??
+                              vehicle.device?.firmwareVersion ??
+                              "",
                           },
                         }))
                       }
@@ -448,12 +545,19 @@ export function DevicesPage() {
                   <label>
                     Firmware
                     <input
-                      value={deviceDrafts[vehicle.id]?.firmwareVersion ?? vehicle.device?.firmwareVersion ?? ''}
+                      value={
+                        deviceDrafts[vehicle.id]?.firmwareVersion ??
+                        vehicle.device?.firmwareVersion ??
+                        ""
+                      }
                       onChange={(event) =>
                         setDeviceDrafts((current) => ({
                           ...current,
                           [vehicle.id]: {
-                            serialNumber: current[vehicle.id]?.serialNumber ?? vehicle.device?.serialNumber ?? '',
+                            serialNumber:
+                              current[vehicle.id]?.serialNumber ??
+                              vehicle.device?.serialNumber ??
+                              "",
                             firmwareVersion: event.target.value,
                           },
                         }))
@@ -463,13 +567,25 @@ export function DevicesPage() {
                 </div>
 
                 <div className="action-row">
-                  <button className="button primary" onClick={() => void attachOrUpdateDevice(vehicle.id)} type="button">
+                  <button
+                    className="button primary"
+                    onClick={() => void attachOrUpdateDevice(vehicle.id)}
+                    type="button"
+                  >
                     Attach or update
                   </button>
-                  <button className="button ghost" onClick={() => void triggerCapabilityDiscovery(vehicle.id)} type="button">
+                  <button
+                    className="button ghost"
+                    onClick={() => void triggerCapabilityDiscovery(vehicle.id)}
+                    type="button"
+                  >
                     Trigger discovery
                   </button>
-                  <button className="button ghost" onClick={() => void fetchSupportedPids(vehicle.id)} type="button">
+                  <button
+                    className="button ghost"
+                    onClick={() => void fetchSupportedPids(vehicle.id)}
+                    type="button"
+                  >
                     Load supported PIDs
                   </button>
                 </div>
@@ -481,7 +597,9 @@ export function DevicesPage() {
                   </div>
                   <div>
                     <dt>Discovery</dt>
-                    <dd>{formatDateTime(vehicle.device?.capabilitiesDiscoveredAt)}</dd>
+                    <dd>
+                      {formatDateTime(vehicle.device?.capabilitiesDiscoveredAt)}
+                    </dd>
                   </div>
                 </dl>
               </div>
@@ -496,7 +614,7 @@ export function DevicesPage() {
                   Search signals
                   <input
                     placeholder="Filter by key or code"
-                    value={queryByVehicle[vehicle.id] ?? ''}
+                    value={queryByVehicle[vehicle.id] ?? ""}
                     onChange={(event) =>
                       setQueryByVehicle((current) => ({
                         ...current,
@@ -514,7 +632,10 @@ export function DevicesPage() {
                 )}
 
                 {!!pidData && !filtered.length && (
-                  <EmptyState title="No matching signals" body="Try a broader search query." />
+                  <EmptyState
+                    title="No matching signals"
+                    body="Try a broader search query."
+                  />
                 )}
 
                 {!!filtered.length && (
@@ -538,7 +659,7 @@ export function DevicesPage() {
                                   <td>{row.pid.key}</td>
                                   <td>{row.pid.label}</td>
                                   <td>{row.pid.fullCode}</td>
-                                  <td>{row.pid.unit || '-'}</td>
+                                  <td>{row.pid.unit || "-"}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -573,7 +694,8 @@ export function ConversationsPage() {
     detailLoading,
   } = useAppModel();
 
-  const selectedRequest = requests.find((request) => request.id === selectedRequestId) ?? null;
+  const selectedRequest =
+    requests.find((request) => request.id === selectedRequestId) ?? null;
 
   return (
     <div className="conversation-layout">
@@ -593,14 +715,16 @@ export function ConversationsPage() {
         <div className="list-scroll">
           {requests.map((request) => (
             <button
-              className={`list-item ${selectedRequestId === request.id ? 'selected' : ''}`}
+              className={`list-item ${selectedRequestId === request.id ? "selected" : ""}`}
               key={request.id}
               onClick={() => setSelectedRequestId(request.id)}
               type="button"
             >
               <div className="item-head">
                 <StatusBadge status={request.status} />
-                <small>{formatRelativeTime(request.updatedAt || request.createdAt)}</small>
+                <small>
+                  {formatRelativeTime(request.updatedAt || request.createdAt)}
+                </small>
               </div>
               <strong>{compactText(request.complaintText, 86)}</strong>
               <p>{vehicleDisplayName(request.vehicle)}</p>
@@ -616,7 +740,10 @@ export function ConversationsPage() {
         </header>
 
         {!selectedRequest && (
-          <EmptyState title="No conversation selected" body="Pick a request from the left panel or create a new one." />
+          <EmptyState
+            title="No conversation selected"
+            body="Pick a request from the left panel or create a new one."
+          />
         )}
 
         {detailLoading && <SkeletonRows count={5} />}
@@ -631,19 +758,25 @@ export function ConversationsPage() {
 
             <article className="thread-block system">
               <small>Classification</small>
-              <p>{requestDetail?.profile?.name || 'Awaiting classification'}</p>
-              {requestDetail?.profile?.rationale && <span>{requestDetail.profile.rationale}</span>}
+              <p>{requestDetail?.profile?.name || "Awaiting classification"}</p>
+              {requestDetail?.profile?.rationale && (
+                <span>{requestDetail.profile.rationale}</span>
+              )}
             </article>
 
             <article className="thread-block system">
               <small>Run status</small>
-              <p>{requestDetail?.latestRun?.status || selectedRequest.status}</p>
+              <p>
+                {requestDetail?.latestRun?.status || selectedRequest.status}
+              </p>
             </article>
 
             {!!requestDetail?.latestRun?.measurements.length && (
               <article className="thread-block system">
                 <small>Measurements</small>
-                <MeasurementGrid measurements={requestDetail.latestRun.measurements} />
+                <MeasurementGrid
+                  measurements={requestDetail.latestRun.measurements}
+                />
               </article>
             )}
 
@@ -660,7 +793,9 @@ export function ConversationsPage() {
                 <p>{reportDetail.reportJson.summary}</p>
                 <button
                   className="button ghost"
-                  onClick={() => downloadReportPdf(reportDetail, selectedRequest)}
+                  onClick={() =>
+                    downloadReportPdf(reportDetail, selectedRequest)
+                  }
                   type="button"
                 >
                   Download PDF
@@ -680,10 +815,17 @@ export function ConversationsPage() {
           <div className="field-row">
             <label>
               Vehicle
-              <select value={selectedVehicleId} onChange={(event) => setSelectedVehicleId(event.target.value)}>
-                <option value="" disabled>Select vehicle</option>
+              <select
+                value={selectedVehicleId}
+                onChange={(event) => setSelectedVehicleId(event.target.value)}
+              >
+                <option value="" disabled>
+                  Select vehicle
+                </option>
                 {vehicles.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>{vehicleDisplayName(vehicle)}</option>
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicleDisplayName(vehicle)}
+                  </option>
                 ))}
               </select>
             </label>
@@ -700,8 +842,13 @@ export function ConversationsPage() {
           </label>
 
           <div className="composer-foot">
-            <p>Creates a backend diagnostic request and starts execution workflow.</p>
-            <button className="button primary" type="submit">Submit request</button>
+            <p>
+              Creates a backend diagnostic request and starts execution
+              workflow.
+            </p>
+            <button className="button primary" type="submit">
+              Submit request
+            </button>
           </div>
         </form>
       </section>
@@ -712,7 +859,10 @@ export function ConversationsPage() {
         </header>
 
         {!selectedRequest && (
-          <EmptyState title="No metadata" body="Select a request to inspect vehicle and processing details." />
+          <EmptyState
+            title="No metadata"
+            body="Select a request to inspect vehicle and processing details."
+          />
         )}
 
         {!!selectedRequest && (
@@ -739,11 +889,11 @@ export function ConversationsPage() {
             </div>
             <div>
               <dt>Latest run ID</dt>
-              <dd>{selectedRequest.latestRun?.id || '-'}</dd>
+              <dd>{selectedRequest.latestRun?.id || "-"}</dd>
             </div>
             <div>
               <dt>Profile</dt>
-              <dd>{selectedRequest.profile?.name || '-'}</dd>
+              <dd>{selectedRequest.profile?.name || "-"}</dd>
             </div>
           </dl>
         )}
@@ -753,9 +903,11 @@ export function ConversationsPage() {
 }
 
 export function ReportsPage() {
-  const { requests, selectedRequestId, setSelectedRequestId, reportDetail } = useAppModel();
+  const { requests, selectedRequestId, setSelectedRequestId, reportDetail } =
+    useAppModel();
   const reports = requests.filter((request) => request.hasReport);
-  const selectedRequest = reports.find((request) => request.id === selectedRequestId) ?? null;
+  const selectedRequest =
+    reports.find((request) => request.id === selectedRequestId) ?? null;
 
   return (
     <div className="split-layout">
@@ -766,27 +918,37 @@ export function ReportsPage() {
         </header>
 
         {!reports.length && (
-          <EmptyState title="No reports available" body="Reports appear here after completed diagnostic runs." />
+          <EmptyState
+            title="No reports available"
+            body="Reports appear here after completed diagnostic runs."
+          />
         )}
 
         <div className="list-scroll">
           {reports.map((request) => (
             <button
-              className={`list-item ${selectedRequestId === request.id ? 'selected' : ''}`}
+              className={`list-item ${selectedRequestId === request.id ? "selected" : ""}`}
               key={request.id}
               onClick={() => setSelectedRequestId(request.id)}
               type="button"
             >
               <strong>{compactText(request.complaintText, 88)}</strong>
               <p>{vehicleDisplayName(request.vehicle)}</p>
-              <small>{formatDateTime(request.completedAt || request.updatedAt)}</small>
+              <small>
+                {formatDateTime(request.completedAt || request.updatedAt)}
+              </small>
             </button>
           ))}
         </div>
       </section>
 
       <section className="panel detail-panel report-detail">
-        {!reportDetail && <EmptyState title="Select a report" body="Choose a report from the list to read full output and export PDF." />}
+        {!reportDetail && (
+          <EmptyState
+            title="Select a report"
+            body="Choose a report from the list to read full output and export PDF."
+          />
+        )}
 
         {!!reportDetail && (
           <>
@@ -855,7 +1017,8 @@ export function SettingsPage() {
           <span>Minimal placeholder</span>
         </header>
         <p className="muted-body">
-          Settings are intentionally minimal in this phase. Authentication and operational pages are prioritized.
+          Settings are intentionally minimal in this phase. Authentication and
+          operational pages are prioritized.
         </p>
       </section>
     </div>

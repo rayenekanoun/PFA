@@ -1,12 +1,13 @@
 param(
   [string]$CarId = "sim-demo",
+  [string]$DeviceId = "sim-device",
   [int]$WaitSeconds = 8
 )
 
 $ErrorActionPreference = "Stop"
 $clusterRoot = Split-Path -Parent $PSScriptRoot
-$commandTopic = "cars/$CarId/commands/diagnostic/request"
-$responseTopic = "cars/$CarId/telemetry/diagnostic/response"
+$commandTopic = "devices/$DeviceId/commands/diagnostic/request"
+$responseTopic = "devices/$DeviceId/telemetry/diagnostic/response"
 
 function New-RequestId {
   param([string]$Prefix)
@@ -96,6 +97,9 @@ function Assert-StructuredResponse {
   if ($response.requestId -ne $ExpectedRequestId) {
     throw "Response requestId mismatch. Expected '$ExpectedRequestId', got '$($response.requestId)'."
   }
+  if ($response.deviceId -ne $DeviceId) {
+    throw "Response deviceId mismatch. Expected '$DeviceId', got '$($response.deviceId)'."
+  }
   if ($response.carId -ne $CarId) {
     throw "Response carId mismatch. Expected '$CarId', got '$($response.carId)'."
   }
@@ -157,6 +161,7 @@ try {
   Start-Sleep -Milliseconds 700
   Publish-Command -Broker "emqx3" -Payload @{
     requestId = $reqSuccess
+    deviceId = $DeviceId
     carId = $CarId
     type = "diagnostic"
     simulate = @{
@@ -175,6 +180,7 @@ try {
   Start-Sleep -Milliseconds 700
   Publish-Command -Broker "emqx1" -Payload @{
     requestId = $reqDelay
+    deviceId = $DeviceId
     carId = $CarId
     type = "diagnostic"
     simulate = @{
@@ -196,6 +202,7 @@ try {
   Start-Sleep -Milliseconds 700
   Publish-Command -Broker "emqx2" -Payload @{
     requestId = $reqError
+    deviceId = $DeviceId
     carId = $CarId
     type = "diagnostic"
     simulate = @{
@@ -214,6 +221,7 @@ try {
   Start-Sleep -Milliseconds 700
   Publish-Command -Broker "emqx3" -Payload @{
     requestId = $reqTimeout
+    deviceId = $DeviceId
     carId = $CarId
     type = "diagnostic"
     simulate = @{
@@ -228,6 +236,7 @@ try {
   $duplicateReqId = New-RequestId -Prefix "dup"
   $duplicatePayload = @{
     requestId = $duplicateReqId
+    deviceId = $DeviceId
     carId = $CarId
     type = "diagnostic"
     simulate = @{
@@ -254,6 +263,7 @@ try {
   Start-Sleep -Milliseconds 700
   Publish-Command -Broker "emqx1" -Payload @{
     requestId = $reqCrossNode
+    deviceId = $DeviceId
     carId = $CarId
     type = "diagnostic"
     simulate = @{

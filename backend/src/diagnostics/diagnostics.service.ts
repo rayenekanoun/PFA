@@ -214,6 +214,7 @@ export class DiagnosticsService {
     const requestId = `cap-${vehicle.id}-${Date.now()}`;
     const response = await this.mqttService.publishCapabilityDiscovery({
       requestId,
+      deviceId: vehicle.device!.id,
       carId: vehicle.mqttCarId,
       correlationId: input.deviceId ?? vehicle.device!.id,
       supportWindows: this.pidCatalogService.getCapabilityDiscoveryWindows(),
@@ -358,6 +359,7 @@ export class DiagnosticsService {
       const mqttCommand = {
         requestId: request.id,
         planId: savedPlan.id,
+        deviceId: request.vehicle.device.id,
         carId: request.vehicle.mqttCarId,
         correlationId: run.id,
         includeDtcs: plan.includeDtcs,
@@ -518,6 +520,7 @@ export class DiagnosticsService {
         const failureResponse = {
           requestId,
           planId: run.diagnosticPlanId,
+          deviceId: run.deviceId ?? 'unknown-device',
           carId: 'unknown',
           generatedAt: new Date().toISOString(),
           status: 'error' as const,
@@ -759,6 +762,7 @@ export class DiagnosticsService {
         mqttCommandJson: {
           requestId: input.request.id,
           planId: input.savedPlan.id,
+          deviceId: input.request.vehicle.device?.id ?? null,
           carId: input.request.vehicle.mqttCarId,
           includeDtcs: false,
           pids: [],
@@ -767,6 +771,7 @@ export class DiagnosticsService {
         rawResponseJson: {
           requestId: input.request.id,
           planId: input.savedPlan.id,
+          deviceId: input.request.vehicle.device?.id ?? 'unknown-device',
           carId: input.request.vehicle.mqttCarId,
           generatedAt: now.toISOString(),
           status: 'error',

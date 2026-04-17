@@ -150,7 +150,7 @@ It produces:
 
 Command topic:
 
-- `cars/{carId}/commands/diagnostic/request`
+- `devices/{deviceId}/commands/diagnostic/request`
 
 Command payload contains:
 
@@ -168,7 +168,7 @@ Per-request simulator debug controls are removed from the API. The local simulat
 
 Response topic:
 
-- `cars/{carId}/telemetry/diagnostic/response`
+- `devices/{deviceId}/telemetry/diagnostic/response`
 
 Response contains:
 
@@ -256,8 +256,8 @@ Why it exists:
 
 Capability discovery topic flow:
 
-- command: `cars/{carId}/commands/capabilities/request`
-- response: `cars/{carId}/telemetry/capabilities/response`
+- command: `devices/{deviceId}/commands/capabilities/request`
+- response: `devices/{deviceId}/telemetry/capabilities/response`
 
 The backend stores the result in:
 

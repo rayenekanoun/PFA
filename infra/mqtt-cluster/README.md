@@ -55,13 +55,13 @@ Expected result:
 Terminal A:
 
 ```powershell
-.\scripts\subscribe.ps1 -Broker emqx1 -Topic "cars/+/commands/#"
+.\scripts\subscribe.ps1 -Broker emqx1 -Topic "devices/+/commands/#"
 ```
 
 Terminal B:
 
 ```powershell
-.\scripts\publish.ps1 -Broker emqx3 -Topic "cars/demo/commands/diagnostic/request" -Message '{"requestId":"req-100","planId":"plan-100","carId":"demo","type":"diagnostic","correlationId":"corr-100","includeDtcs":true,"timeoutMs":15000,"pids":[{"key":"engine_rpm","mode":"01","pid":"0C"},{"key":"vehicle_speed","mode":"01","pid":"0D"},{"key":"maf","mode":"01","pid":"10"}],"simulate":{"mode":"success"}}'
+.\scripts\publish.ps1 -Broker emqx3 -Topic "devices/demo-device/commands/diagnostic/request" -Message '{"requestId":"req-100","planId":"plan-100","deviceId":"demo-device","carId":"demo","type":"diagnostic","correlationId":"corr-100","includeDtcs":true,"timeoutMs":15000,"pids":[{"key":"engine_rpm","mode":"01","pid":"0C"},{"key":"vehicle_speed","mode":"01","pid":"0D"},{"key":"maf","mode":"01","pid":"10"}],"simulate":{"mode":"success"}}'
 ```
 
 You should see the message in Terminal A.
@@ -71,9 +71,9 @@ You should see the message in Terminal A.
 `start.ps1` now starts a TypeScript simulator container (`mqtt-simulator`) alongside the cluster.
 
 Supported topics:
-- Subscribe: `cars/{carId}/commands/#` (`qos=2`)
-- Diagnostic command publish: `cars/{carId}/telemetry/diagnostic/response` (`qos=2`)
-- Capability response publish: `cars/{carId}/telemetry/capabilities/response` (`qos=2`)
+- Subscribe: `devices/{deviceId}/commands/#` (`qos=2`)
+- Diagnostic command publish: `devices/{deviceId}/telemetry/diagnostic/response` (`qos=2`)
+- Capability response publish: `devices/{deviceId}/telemetry/capabilities/response` (`qos=2`)
 
 Supported command types:
 - `diagnostic`
@@ -82,6 +82,7 @@ Supported command types:
 Diagnostic command payload:
 - `requestId`
 - `planId`
+- `deviceId`
 - `carId`
 - `type = "diagnostic"`
 - `correlationId`
@@ -93,6 +94,7 @@ Diagnostic command payload:
 Diagnostic response payload:
 - `requestId`
 - `planId`
+- `deviceId`
 - `carId`
 - `status`
 - `measurements[]`
@@ -101,6 +103,7 @@ Diagnostic response payload:
 
 Capability discovery command payload:
 - `requestId`
+- `deviceId`
 - `carId`
 - `type = "capability_discovery"`
 - optional `correlationId`
@@ -108,6 +111,7 @@ Capability discovery command payload:
 
 Capability discovery response payload:
 - `requestId`
+- `deviceId`
 - `carId`
 - `status`
 - `supportWindows[]`
@@ -143,8 +147,47 @@ npm run test:contract
 Manual capability discovery example:
 
 ```powershell
-.\scripts\publish.ps1 -Broker emqx2 -Topic "cars/demo/commands/capabilities/request" -Message '{"requestId":"cap-100","carId":"demo","type":"capability_discovery","correlationId":"cap-corr-100","supportWindows":["0100","0120","0140"]}'
+.\scripts\publish.ps1 -Broker emqx2 -Topic "devices/demo-device/commands/capabilities/request" -Message '{"requestId":"cap-100","deviceId":"demo-device","carId":"demo","type":"capability_discovery","correlationId":"cap-corr-100","supportWindows":["0100","0120","0140"]}'
 ```
+
+## 5b) Manual device mode without simulator
+
+If you want to act like the device yourself from the terminal:
+
+1. start only brokers + tools
+2. stop the simulator
+3. watch the device request topic
+4. publish a manual response for the captured `requestId`
+
+Start brokers without relying on the simulator:
+
+```powershell
+docker compose up -d emqx1 emqx2 emqx3 mqtt-tools
+docker compose stop simulator
+```
+
+Watch commands for one real or manual device:
+
+```powershell
+.\scripts\watch-device.ps1 -DeviceId "your-device-id"
+```
+
+Manual diagnostic response with one of the built-in presets:
+
+```powershell
+.\scripts\respond-manual.ps1 -Type diagnostic -DeviceId "your-device-id" -CarId "your-car-id" -RequestId "diagnostic-request-id" -PlanId "diagnostic-plan-id" -ProfilePreset rough_idle
+```
+
+Manual capability response:
+
+```powershell
+.\scripts\respond-manual.ps1 -Type capabilities -DeviceId "your-device-id" -CarId "your-car-id" -RequestId "capability-request-id"
+```
+
+Available diagnostic presets:
+- `overheating`
+- `rough_idle`
+- `fuel_rich`
 
 ## 6) Stop
 

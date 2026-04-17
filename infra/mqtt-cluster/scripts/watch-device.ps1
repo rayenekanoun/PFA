@@ -1,5 +1,6 @@
 param(
-  [string]$Topic = "devices/+/telemetry/#",
+  [Parameter(Mandatory = $true)]
+  [string]$DeviceId,
   [ValidateSet("emqx1", "emqx2", "emqx3")]
   [string]$Broker = "emqx1",
   [int]$Count = 0
@@ -7,10 +8,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 $clusterRoot = Split-Path -Parent $PSScriptRoot
+$topic = "devices/$DeviceId/commands/#"
 
 Push-Location $clusterRoot
 try {
-  $cmd = @("mosquitto_sub", "-h", $Broker, "-p", "1883", "-t", $Topic, "-v")
+  $cmd = @("mosquitto_sub", "-h", $Broker, "-p", "1883", "-t", $topic, "-v")
   if ($Count -gt 0) {
     $cmd += @("-C", $Count.ToString())
   }

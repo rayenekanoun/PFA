@@ -17,7 +17,7 @@ export interface SimulatorConfig {
   clientId: string;
 }
 
-const DEFAULT_TOPIC = "cars/+/commands/#";
+const DEFAULT_TOPIC = "devices/+/commands/#";
 const DEFAULT_SERVERS = "localhost:1883,localhost:2883,localhost:3883";
 
 export function loadConfig(env: NodeJS.ProcessEnv): SimulatorConfig {

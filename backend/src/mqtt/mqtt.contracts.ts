@@ -22,6 +22,7 @@ export const diagnosticDtcResponseSchema = z.object({
 export const diagnosticDeviceResponseSchema = z.object({
   requestId: z.string().min(1),
   planId: z.string().optional(),
+  deviceId: z.string().min(1),
   carId: z.string().min(1),
   generatedAt: z.string().datetime({ offset: true }),
   simulated: z.boolean().optional(),
@@ -38,6 +39,7 @@ export const diagnosticDeviceResponseSchema = z.object({
 
 export const capabilityDiscoveryResponseSchema = z.object({
   requestId: z.string().min(1),
+  deviceId: z.string().min(1),
   carId: z.string().min(1),
   generatedAt: z.string().datetime({ offset: true }),
   simulated: z.boolean().optional(),
@@ -58,6 +60,7 @@ export type CapabilityDiscoveryResponse = z.infer<typeof capabilityDiscoveryResp
 export interface PublishDiagnosticCommandInput {
   requestId: string;
   planId: string;
+  deviceId: string;
   carId: string;
   correlationId: string;
   includeDtcs: boolean;
@@ -73,6 +76,7 @@ export interface PublishDiagnosticCommandInput {
 
 export interface PublishCapabilityDiscoveryInput {
   requestId: string;
+  deviceId: string;
   carId: string;
   correlationId: string;
   supportWindows: string[];

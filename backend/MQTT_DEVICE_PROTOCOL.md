@@ -6,7 +6,7 @@ It is written for someone building the device side from scratch.
 
 The goal is simple:
 
-- the backend sends MQTT requests to a device associated with a given `carId`
+- the backend sends MQTT requests to a device associated with a given `deviceId`
 - the device listens on the correct MQTT topics
 - the device queries the real OBD interface / CAN bus / ELM327 adapter
 - the device responds in the JSON format the backend expects
@@ -39,19 +39,19 @@ It only needs to:
 
 ## Question: For the device, from where should it subscribe?
 
-The device should subscribe to these MQTT request topics for its own `carId`:
+The device should subscribe to these MQTT request topics for its own `deviceId`:
 
 - Diagnostic requests:
-  - `cars/{carId}/commands/diagnostic/request`
+  - `devices/{deviceId}/commands/diagnostic/request`
 - Capability discovery requests:
-  - `cars/{carId}/commands/capabilities/request`
+  - `devices/{deviceId}/commands/capabilities/request`
 
-Example for a car with `carId = my-car-001`:
+Example for a device with `deviceId = my-device-001`:
 
-- `cars/my-car-001/commands/diagnostic/request`
-- `cars/my-car-001/commands/capabilities/request`
+- `devices/my-device-001/commands/diagnostic/request`
+- `devices/my-device-001/commands/capabilities/request`
 
-This means each physical device should know which `carId` it is representing on MQTT.
+This means each physical device can stay subscribed to its own `deviceId` namespace on MQTT.
 
 ## Question: What format should it respond in?
 
@@ -62,15 +62,16 @@ The backend expects:
 - UTF-8 JSON payload
 - one response per request
 - the same `requestId` echoed back
+- the same `deviceId` echoed back
 - the same `carId` echoed back
 - ISO timestamp in `generatedAt`
 
 The response topics are:
 
 - Diagnostic responses:
-  - `cars/{carId}/telemetry/diagnostic/response`
+  - `devices/{deviceId}/telemetry/diagnostic/response`
 - Capability discovery responses:
-  - `cars/{carId}/telemetry/capabilities/response`
+  - `devices/{deviceId}/telemetry/capabilities/response`
 
 ## Question: If supported PIDs are not stored yet, should we request them first?
 
@@ -101,15 +102,15 @@ So if you want "everything the car supports", the device should answer the bitma
 
 ## Question: Are capability requests on the same topic / same structure?
 
-Same car namespace, different topic.
+Same device namespace, different topic.
 
 Request topic:
 
-- `cars/{carId}/commands/capabilities/request`
+- `devices/{deviceId}/commands/capabilities/request`
 
 Response topic:
 
-- `cars/{carId}/telemetry/capabilities/response`
+- `devices/{deviceId}/telemetry/capabilities/response`
 
 The shape is similar to diagnostic requests, but simpler.
 
@@ -120,6 +121,7 @@ Example request:
 ```json
 {
   "requestId": "cap-vehicleId-timestamp",
+  "deviceId": "your-device-id",
   "carId": "your-car-id",
   "type": "capability_discovery",
   "correlationId": "device-or-run-id",
@@ -131,6 +133,9 @@ Field meaning:
 
 - `requestId`
   - unique backend request identifier
+  - must be echoed back in the response
+- `deviceId`
+  - MQTT device identifier used for routing
   - must be echoed back in the response
 - `carId`
   - MQTT car identifier used by the backend
@@ -479,9 +484,9 @@ Example:
 Publish only to the telemetry response topics:
 
 - Capability discovery response:
-  - `cars/{carId}/telemetry/capabilities/response`
+  - `devices/{deviceId}/telemetry/capabilities/response`
 - Diagnostic response:
-  - `cars/{carId}/telemetry/diagnostic/response`
+  - `devices/{deviceId}/telemetry/diagnostic/response`
 
 Do not publish capability responses back onto the command topic.
 
@@ -493,8 +498,8 @@ No.
 
 Use two request subscriptions:
 
-- `cars/{carId}/commands/capabilities/request`
-- `cars/{carId}/commands/diagnostic/request`
+- `devices/{deviceId}/commands/capabilities/request`
+- `devices/{deviceId}/commands/diagnostic/request`
 
 This makes it easy for the device firmware to dispatch logic correctly:
 
@@ -536,8 +541,8 @@ Suggested flow:
 1. connect to Wi-Fi / Ethernet
 2. connect to EMQX broker
 3. subscribe to:
-   - `cars/{carId}/commands/diagnostic/request`
-   - `cars/{carId}/commands/capabilities/request`
+   - `devices/{deviceId}/commands/diagnostic/request`
+   - `devices/{deviceId}/commands/capabilities/request`
 4. when a request arrives:
    - parse JSON
    - validate fields
@@ -549,14 +554,14 @@ Suggested flow:
 
 To replace the simulator with a real device:
 
-1. give the device a real `carId`
+1. give the device its real backend `deviceId`
 2. connect it to the same MQTT broker used by the backend
 3. subscribe to:
-   - `cars/{carId}/commands/diagnostic/request`
-   - `cars/{carId}/commands/capabilities/request`
+   - `devices/{deviceId}/commands/diagnostic/request`
+   - `devices/{deviceId}/commands/capabilities/request`
 4. publish responses to:
-   - `cars/{carId}/telemetry/diagnostic/response`
-   - `cars/{carId}/telemetry/capabilities/response`
+   - `devices/{deviceId}/telemetry/diagnostic/response`
+   - `devices/{deviceId}/telemetry/capabilities/response`
 5. make sure the device returns the JSON payloads exactly as described here
 
 Practical options:
@@ -570,7 +575,7 @@ For first real-device testing:
 1. register a system device in the backend
 2. create a vehicle
 3. attach the device to the vehicle using its `deviceCode`
-4. make sure the vehicle’s `mqttCarId` matches the MQTT topic namespace the device uses
+4. make sure the request payload always includes the current vehicle `mqttCarId`
 5. trigger capability discovery
 6. inspect the backend stored supported PIDs
 7. trigger a diagnostic request
@@ -580,6 +585,7 @@ For first real-device testing:
 The device teammate should remember these rules:
 
 - always echo `requestId`
+- always echo `deviceId`
 - always echo `carId`
 - use ISO timestamps for `generatedAt`
 - publish JSON, not binary blobs
@@ -600,11 +606,11 @@ The backend-device contract is:
 Topics:
 
 - request:
-  - `cars/{carId}/commands/capabilities/request`
-  - `cars/{carId}/commands/diagnostic/request`
+  - `devices/{deviceId}/commands/capabilities/request`
+  - `devices/{deviceId}/commands/diagnostic/request`
 - response:
-  - `cars/{carId}/telemetry/capabilities/response`
-  - `cars/{carId}/telemetry/diagnostic/response`
+  - `devices/{deviceId}/telemetry/capabilities/response`
+  - `devices/{deviceId}/telemetry/diagnostic/response`
 
 Capability windows currently used by the backend:
 

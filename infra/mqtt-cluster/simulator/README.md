@@ -4,9 +4,9 @@ Deterministic TypeScript simulator for the local EMQX cluster.
 
 ## Supported command contract
 
-- Subscribe topic: `cars/{carId}/commands/#` (`qos=2`)
-- Diagnostic response topic: `cars/{carId}/telemetry/diagnostic/response` (`qos=2`)
-- Capability response topic: `cars/{carId}/telemetry/capabilities/response` (`qos=2`)
+- Subscribe topic: `devices/{deviceId}/commands/#` (`qos=2`)
+- Diagnostic response topic: `devices/{deviceId}/telemetry/diagnostic/response` (`qos=2`)
+- Capability response topic: `devices/{deviceId}/telemetry/capabilities/response` (`qos=2`)
 - Supported command types:
   - `diagnostic`
   - `capability_discovery`
@@ -18,6 +18,7 @@ Diagnostic command shape:
 {
   "requestId": "req-123",
   "planId": "plan-123",
+  "deviceId": "demo-device",
   "carId": "demo",
   "type": "diagnostic",
   "correlationId": "corr-123",
@@ -36,6 +37,7 @@ Capability discovery command shape:
 ```json
 {
   "requestId": "cap-123",
+  "deviceId": "demo-device",
   "carId": "demo",
   "type": "capability_discovery",
   "correlationId": "cap-corr-123",
@@ -62,7 +64,7 @@ For live broker connection from local host, defaults target:
 ## Environment variables
 
 - `MQTT_SERVERS` (default: `localhost:1883,localhost:2883,localhost:3883`)
-- `REQUEST_TOPIC` (default: `cars/+/commands/#`)
+- `REQUEST_TOPIC` (default: `devices/+/commands/#`)
 - `REQUEST_QOS` (default: `2`)
 - `RESPONSE_QOS` (default: `2`)
 - `MAX_DELAY_MS` (default: `30000`)

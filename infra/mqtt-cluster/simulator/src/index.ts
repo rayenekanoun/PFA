@@ -4,17 +4,17 @@ import {
   buildCapabilityErrorResponse,
   buildDiagnosticErrorResponse,
   CapabilityResponseSchema,
-  capabilityResponseTopicForCar,
+  capabilityResponseTopicForDevice,
   DiagnosticResponseSchema,
-  diagnosticResponseTopicForCar,
+  diagnosticResponseTopicForDevice,
   parseCapabilityCommandFromPayload,
   parseDiagnosticCommandFromPayload,
 } from "./contracts";
 import { RequestDedupeCache } from "./dedupe";
 import { buildCapabilityScenarioOutcome, buildDiagnosticScenarioOutcome } from "./scenario";
 
-const DIAGNOSTIC_REQUEST_TOPIC_REGEX = /^cars\/([^/]+)\/commands\/diagnostic\/request$/;
-const CAPABILITY_REQUEST_TOPIC_REGEX = /^cars\/([^/]+)\/commands\/capabilities\/request$/;
+const DIAGNOSTIC_REQUEST_TOPIC_REGEX = /^devices\/([^/]+)\/commands\/diagnostic\/request$/;
+const CAPABILITY_REQUEST_TOPIC_REGEX = /^devices\/([^/]+)\/commands\/capabilities\/request$/;
 
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
@@ -90,15 +90,15 @@ async function handleMessage(
   payloadText: string,
   options: HandleMessageOptions,
 ): Promise<void> {
-  const diagnosticCarId = extractCarId(topic, DIAGNOSTIC_REQUEST_TOPIC_REGEX);
-  if (diagnosticCarId) {
-    await handleDiagnosticMessage(client, topic, payloadText, diagnosticCarId, options);
+  const diagnosticDeviceId = extractDeviceId(topic, DIAGNOSTIC_REQUEST_TOPIC_REGEX);
+  if (diagnosticDeviceId) {
+    await handleDiagnosticMessage(client, topic, payloadText, diagnosticDeviceId, options);
     return;
   }
 
-  const capabilityCarId = extractCarId(topic, CAPABILITY_REQUEST_TOPIC_REGEX);
-  if (capabilityCarId) {
-    await handleCapabilityMessage(client, topic, payloadText, capabilityCarId, options);
+  const capabilityDeviceId = extractDeviceId(topic, CAPABILITY_REQUEST_TOPIC_REGEX);
+  if (capabilityDeviceId) {
+    await handleCapabilityMessage(client, topic, payloadText, capabilityDeviceId, options);
   }
 }
 
@@ -106,20 +106,21 @@ async function handleDiagnosticMessage(
   client: MqttClient,
   topic: string,
   payloadText: string,
-  topicCarId: string,
+  topicDeviceId: string,
   options: HandleMessageOptions,
 ): Promise<void> {
-  const parsed = parseDiagnosticCommandFromPayload(payloadText, topicCarId);
+  const parsed = parseDiagnosticCommandFromPayload(payloadText, topicDeviceId);
   if (!parsed.ok) {
     logInfo(`Invalid diagnostic request on topic '${topic}': ${parsed.reason}`);
     const errorResponse = buildDiagnosticErrorResponse({
       requestId: parsed.requestId,
+      deviceId: parsed.deviceId,
       carId: parsed.carId,
       generatedAt: new Date().toISOString(),
       code: "INVALID_REQUEST",
       message: parsed.reason,
     });
-    await publishDiagnosticResponse(client, parsed.carId, errorResponse, options.responseQos);
+    await publishDiagnosticResponse(client, parsed.deviceId, errorResponse, options.responseQos);
     return;
   }
 
@@ -142,28 +143,29 @@ async function handleDiagnosticMessage(
     await sleep(outcome.delayMs);
   }
 
-  await publishDiagnosticResponse(client, parsed.command.carId, outcome.response, options.responseQos);
+  await publishDiagnosticResponse(client, parsed.command.deviceId, outcome.response, options.responseQos);
 }
 
 async function handleCapabilityMessage(
   client: MqttClient,
   topic: string,
   payloadText: string,
-  topicCarId: string,
+  topicDeviceId: string,
   options: HandleMessageOptions,
 ): Promise<void> {
-  const parsed = parseCapabilityCommandFromPayload(payloadText, topicCarId);
+  const parsed = parseCapabilityCommandFromPayload(payloadText, topicDeviceId);
   if (!parsed.ok) {
     logInfo(`Invalid capability request on topic '${topic}': ${parsed.reason}`);
     const errorResponse = buildCapabilityErrorResponse({
       requestId: parsed.requestId,
+      deviceId: parsed.deviceId,
       carId: parsed.carId,
       generatedAt: new Date().toISOString(),
       supportWindows: ["0100", "0120", "0140"],
       code: "INVALID_REQUEST",
       message: parsed.reason,
     });
-    await publishCapabilityResponse(client, parsed.carId, errorResponse, options.responseQos);
+    await publishCapabilityResponse(client, parsed.deviceId, errorResponse, options.responseQos);
     return;
   }
 
@@ -177,17 +179,17 @@ async function handleCapabilityMessage(
   if (outcome.kind === "silent") {
     return;
   }
-  await publishCapabilityResponse(client, parsed.command.carId, outcome.response, options.responseQos);
+  await publishCapabilityResponse(client, parsed.command.deviceId, outcome.response, options.responseQos);
 }
 
 async function publishDiagnosticResponse(
   client: MqttClient,
-  carId: string,
+  deviceId: string,
   payload: unknown,
   qos: 0 | 1 | 2,
 ): Promise<void> {
   const validatedPayload = DiagnosticResponseSchema.parse(payload);
-  const topic = diagnosticResponseTopicForCar(carId);
+  const topic = diagnosticResponseTopicForDevice(deviceId);
   const payloadText = JSON.stringify(validatedPayload);
 
   await publish(client, topic, payloadText, qos);
@@ -196,12 +198,12 @@ async function publishDiagnosticResponse(
 
 async function publishCapabilityResponse(
   client: MqttClient,
-  carId: string,
+  deviceId: string,
   payload: unknown,
   qos: 0 | 1 | 2,
 ): Promise<void> {
   const validatedPayload = CapabilityResponseSchema.parse(payload);
-  const topic = capabilityResponseTopicForCar(carId);
+  const topic = capabilityResponseTopicForDevice(deviceId);
   const payloadText = JSON.stringify(validatedPayload);
 
   await publish(client, topic, payloadText, qos);
@@ -225,7 +227,7 @@ async function publish(
   });
 }
 
-function extractCarId(topic: string, regex: RegExp): string | null {
+function extractDeviceId(topic: string, regex: RegExp): string | null {
   const match = topic.match(regex);
   return match?.[1] ?? null;
 }

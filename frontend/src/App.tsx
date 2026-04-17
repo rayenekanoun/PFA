@@ -1,6 +1,12 @@
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import './index.css';
-import { AppShell } from './app/AppShell';
+import {
+  BrowserRouter,
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+} from "react-router-dom";
+import "./index.css";
+import { AppShell } from "./app/AppShell";
 import {
   AuthPage,
   CarsPage,
@@ -9,18 +15,20 @@ import {
   OverviewPage,
   ReportsPage,
   SettingsPage,
-} from './app/pages';
-import { AppProvider, useAppModel } from './app/useAppModel';
+} from "./app/pages";
+import { AppProvider, useAppModel } from "./app/useAppModel";
 
 function AuthGate() {
   const { auth, initializing } = useAppModel();
-  if (initializing) return <div className="boot-screen">Loading diagnostics workspace...</div>;
+  if (initializing)
+    return <div className="boot-screen">Loading diagnostics workspace...</div>;
   return auth ? <Navigate replace to="/overview" /> : <Outlet />;
 }
 
 function PrivateGate() {
   const { auth, initializing } = useAppModel();
-  if (initializing) return <div className="boot-screen">Loading diagnostics workspace...</div>;
+  if (initializing)
+    return <div className="boot-screen">Loading diagnostics workspace...</div>;
   return auth ? <AppShell /> : <Navigate replace to="/login" />;
 }
 

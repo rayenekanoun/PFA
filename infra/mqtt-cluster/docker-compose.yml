@@ -83,7 +83,7 @@ services:
     restart: unless-stopped
     environment:
       MQTT_SERVERS: "emqx1:1883,emqx2:1883,emqx3:1883"
-      REQUEST_TOPIC: "cars/+/commands/#"
+      REQUEST_TOPIC: "devices/+/commands/#"
       REQUEST_QOS: "2"
       RESPONSE_QOS: "2"
       MAX_DELAY_MS: "30000"

@@ -7,8 +7,8 @@ import {
   useEffect,
   useMemo,
   useState,
-} from 'react';
-import type { Dispatch, ReactNode, SetStateAction } from 'react';
+} from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import {
   apiRequest,
   ApiError,
@@ -16,7 +16,7 @@ import {
   REQUEST_SELECTION_STORAGE_KEY,
   VEHICLE_SELECTION_STORAGE_KEY,
   readStoredAuth,
-} from './lib';
+} from "./lib";
 import type {
   AuthMode,
   AuthSession,
@@ -26,9 +26,12 @@ import type {
   ReportResponse,
   SupportedPidResponse,
   Vehicle,
-} from './types';
+} from "./types";
 
-type DeviceDrafts = Record<string, { serialNumber: string; firmwareVersion: string }>;
+type DeviceDrafts = Record<
+  string,
+  { serialNumber: string; firmwareVersion: string }
+>;
 
 interface VehicleDraft {
   mqttCarId: string;
@@ -61,7 +64,12 @@ interface AppModelValue {
   setComplaintText: (value: string) => void;
   updateVehicleDraft: (key: keyof VehicleDraft, value: string) => void;
   setDeviceDrafts: Dispatch<SetStateAction<DeviceDrafts>>;
-  authenticate: (mode: AuthMode, email: string, password: string, displayName?: string) => Promise<void>;
+  authenticate: (
+    mode: AuthMode,
+    email: string,
+    password: string,
+    displayName?: string,
+  ) => Promise<void>;
   logout: () => void;
   refreshWorkspace: () => Promise<void>;
   createVehicle: () => Promise<void>;
@@ -74,18 +82,18 @@ interface AppModelValue {
 const AppModelContext = createContext<AppModelValue | null>(null);
 
 const initialVehicleDraft: VehicleDraft = {
-  mqttCarId: '',
-  vin: '',
-  make: '',
-  model: '',
-  year: '',
+  mqttCarId: "",
+  vin: "",
+  make: "",
+  model: "",
+  year: "",
 };
 
 function readStoredSelection(key: string): string {
   try {
-    return localStorage.getItem(key) ?? '';
+    return localStorage.getItem(key) ?? "";
   } catch {
-    return '';
+    return "";
   }
 }
 
@@ -97,15 +105,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [requests, setRequests] = useState<DiagnosticRequestSummary[]>([]);
-  const [selectedVehicleId, setSelectedVehicleIdState] = useState(() => readStoredSelection(VEHICLE_SELECTION_STORAGE_KEY));
-  const [selectedRequestId, setSelectedRequestIdState] = useState(() => readStoredSelection(REQUEST_SELECTION_STORAGE_KEY));
-  const [requestDetail, setRequestDetail] = useState<DiagnosticRequestDetail | null>(null);
+  const [selectedVehicleId, setSelectedVehicleIdState] = useState(() =>
+    readStoredSelection(VEHICLE_SELECTION_STORAGE_KEY),
+  );
+  const [selectedRequestId, setSelectedRequestIdState] = useState(() =>
+    readStoredSelection(REQUEST_SELECTION_STORAGE_KEY),
+  );
+  const [requestDetail, setRequestDetail] =
+    useState<DiagnosticRequestDetail | null>(null);
   const [reportDetail, setReportDetail] = useState<ReportResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [supportedByVehicle, setSupportedByVehicle] = useState<Record<string, SupportedPidResponse>>({});
+  const [supportedByVehicle, setSupportedByVehicle] = useState<
+    Record<string, SupportedPidResponse>
+  >({});
   const [deviceDrafts, setDeviceDrafts] = useState<DeviceDrafts>({});
-  const [complaintText, setComplaintText] = useState('');
-  const [vehicleDraft, setVehicleDraft] = useState<VehicleDraft>(initialVehicleDraft);
+  const [complaintText, setComplaintText] = useState("");
+  const [vehicleDraft, setVehicleDraft] =
+    useState<VehicleDraft>(initialVehicleDraft);
 
   useEffect(() => {
     if (auth) {
@@ -129,7 +145,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const withAuth = useCallback(
     async <T,>(path: string, options: RequestInit = {}) => {
-      if (!auth) throw new Error('Sign in required.');
+      if (!auth) throw new Error("Sign in required.");
       try {
         return await apiRequest<T>(path, {
           ...options,
@@ -140,8 +156,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw error;
         }
 
-        const refreshed = await apiRequest<AuthSession>('/auth/refresh', {
-          method: 'POST',
+        const refreshed = await apiRequest<AuthSession>("/auth/refresh", {
+          method: "POST",
           body: JSON.stringify({ refreshToken: auth.refreshToken }),
         });
         setAuth(refreshed);
@@ -166,21 +182,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!auth) return;
     setWorkspaceError(null);
     const [vehicleList, requestList] = await Promise.all([
-      withAuth<Vehicle[]>('/vehicles'),
-      withAuth<DiagnosticRequestSummary[]>('/diagnostic-requests'),
+      withAuth<Vehicle[]>("/vehicles"),
+      withAuth<DiagnosticRequestSummary[]>("/diagnostic-requests"),
     ]);
 
     setVehicles(vehicleList);
     setRequests(requestList);
 
     setSelectedVehicleIdState((current) => {
-      if (current && vehicleList.some((item) => item.id === current)) return current;
-      return vehicleList[0]?.id ?? '';
+      if (current && vehicleList.some((item) => item.id === current))
+        return current;
+      return vehicleList[0]?.id ?? "";
     });
 
     setSelectedRequestIdState((current) => {
-      if (current && requestList.some((item) => item.id === current)) return current;
-      return requestList[0]?.id ?? '';
+      if (current && requestList.some((item) => item.id === current))
+        return current;
+      return requestList[0]?.id ?? "";
     });
   }, [auth, withAuth]);
 
@@ -193,12 +211,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let active = true;
     void (async () => {
       try {
-        await withAuth<AuthUser>('/auth/me');
+        await withAuth<AuthUser>("/auth/me");
         await refreshWorkspace();
       } catch (error) {
         if (active) {
           setAuth(null);
-          setWorkspaceError(error instanceof Error ? error.message : 'Authentication failed.');
+          setWorkspaceError(
+            error instanceof Error ? error.message : "Authentication failed.",
+          );
         }
       } finally {
         if (active) setInitializing(false);
@@ -221,13 +241,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDetailLoading(true);
     void (async () => {
       try {
-        const detail = await withAuth<DiagnosticRequestDetail>(`/diagnostic-requests/${selectedRequestId}`);
+        const detail = await withAuth<DiagnosticRequestDetail>(
+          `/diagnostic-requests/${selectedRequestId}`,
+        );
         if (cancelled) return;
         setRequestDetail(detail);
 
         const summary = requests.find((item) => item.id === selectedRequestId);
         if (summary?.hasReport) {
-          const report = await withAuth<ReportResponse>(`/reports/${selectedRequestId}`);
+          const report = await withAuth<ReportResponse>(
+            `/reports/${selectedRequestId}`,
+          );
           if (!cancelled) {
             setReportDetail(report);
           }
@@ -236,7 +260,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         if (!cancelled) {
-          setWorkspaceError(error instanceof Error ? error.message : 'Unable to load the selected diagnostic request.');
+          setWorkspaceError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load the selected diagnostic request.",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -250,23 +278,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [auth, requests, selectedRequestId, withAuth]);
 
-  const updateVehicleDraft = useCallback((key: keyof VehicleDraft, value: string) => {
-    setVehicleDraft((current) => ({ ...current, [key]: value }));
-  }, []);
+  const updateVehicleDraft = useCallback(
+    (key: keyof VehicleDraft, value: string) => {
+      setVehicleDraft((current) => ({ ...current, [key]: value }));
+    },
+    [],
+  );
 
   const authenticate = useCallback(
-    async (mode: AuthMode, email: string, password: string, displayName?: string) => {
+    async (
+      mode: AuthMode,
+      email: string,
+      password: string,
+      displayName?: string,
+    ) => {
       setBusy(true);
       setWorkspaceError(null);
       try {
         const session =
-          mode === 'register'
-            ? await apiRequest<AuthSession>('/auth/register', {
-                method: 'POST',
+          mode === "register"
+            ? await apiRequest<AuthSession>("/auth/register", {
+                method: "POST",
                 body: JSON.stringify({ email, password, displayName }),
               })
-            : await apiRequest<AuthSession>('/auth/login', {
-                method: 'POST',
+            : await apiRequest<AuthSession>("/auth/login", {
+                method: "POST",
                 body: JSON.stringify({ email, password }),
               });
 
@@ -286,28 +322,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRequestDetail(null);
     setReportDetail(null);
     setSupportedByVehicle({});
-    setSelectedVehicleIdState('');
-    setSelectedRequestIdState('');
-    setToast('Session closed.');
+    setSelectedVehicleIdState("");
+    setSelectedRequestIdState("");
+    setToast("Session closed.");
   }, []);
 
   const createVehicle = useCallback(async () => {
     if (!vehicleDraft.mqttCarId.trim()) {
-      setWorkspaceError('MQTT car ID is required.');
+      setWorkspaceError("MQTT car ID is required.");
       return;
     }
 
     setBusy(true);
     setWorkspaceError(null);
     try {
-      const created = await withAuth<Vehicle>('/vehicles', {
-        method: 'POST',
+      const created = await withAuth<Vehicle>("/vehicles", {
+        method: "POST",
         body: JSON.stringify({
           mqttCarId: vehicleDraft.mqttCarId.trim(),
           vin: vehicleDraft.vin.trim() || undefined,
           make: vehicleDraft.make.trim() || undefined,
           model: vehicleDraft.model.trim() || undefined,
-          year: vehicleDraft.year.trim() ? Number(vehicleDraft.year.trim()) : undefined,
+          year: vehicleDraft.year.trim()
+            ? Number(vehicleDraft.year.trim())
+            : undefined,
         }),
       });
 
@@ -316,7 +354,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       startTransition(() => {
         setSelectedVehicleIdState(created.id);
       });
-      setToast('Vehicle created successfully.');
+      setToast("Vehicle created successfully.");
     } finally {
       setBusy(false);
     }
@@ -326,7 +364,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (vehicleId: string) => {
       const draft = deviceDrafts[vehicleId];
       if (!draft?.serialNumber.trim()) {
-        setWorkspaceError('Device serial number is required.');
+        setWorkspaceError("Device serial number is required.");
         return;
       }
 
@@ -334,14 +372,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setWorkspaceError(null);
       try {
         await withAuth(`/vehicles/${vehicleId}/devices`, {
-          method: 'POST',
+          method: "POST",
           body: JSON.stringify({
             serialNumber: draft.serialNumber.trim(),
             firmwareVersion: draft.firmwareVersion.trim() || undefined,
           }),
         });
         await refreshWorkspace();
-        setToast('Device updated successfully.');
+        setToast("Device updated successfully.");
       } finally {
         setBusy(false);
       }
@@ -355,9 +393,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setWorkspaceError(null);
       try {
         await withAuth(`/vehicles/${vehicleId}/discover-capabilities`, {
-          method: 'POST',
+          method: "POST",
         });
-        setToast('Capability discovery triggered.');
+        setToast("Capability discovery triggered.");
       } finally {
         setBusy(false);
       }
@@ -370,9 +408,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setBusy(true);
       setWorkspaceError(null);
       try {
-        const payload = await withAuth<SupportedPidResponse>(`/vehicles/${vehicleId}/supported-pids`);
-        setSupportedByVehicle((current) => ({ ...current, [vehicleId]: payload }));
-        setToast('Supported signal matrix loaded.');
+        const payload = await withAuth<SupportedPidResponse>(
+          `/vehicles/${vehicleId}/supported-pids`,
+        );
+        setSupportedByVehicle((current) => ({
+          ...current,
+          [vehicleId]: payload,
+        }));
+        setToast("Supported signal matrix loaded.");
       } finally {
         setBusy(false);
       }
@@ -382,30 +425,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const createDiagnosticRequest = useCallback(async () => {
     if (!selectedVehicleId) {
-      setWorkspaceError('Select a vehicle before creating a request.');
+      setWorkspaceError("Select a vehicle before creating a request.");
       return;
     }
     if (!complaintText.trim()) {
-      setWorkspaceError('Diagnostic complaint cannot be empty.');
+      setWorkspaceError("Diagnostic complaint cannot be empty.");
       return;
     }
 
     setBusy(true);
     setWorkspaceError(null);
     try {
-      const response = await withAuth<{ requestId: string }>('/diagnostic-requests', {
-        method: 'POST',
-        body: JSON.stringify({
-          vehicleId: selectedVehicleId,
-          complaintText: complaintText.trim(),
-        }),
-      });
+      const response = await withAuth<{ requestId: string }>(
+        "/diagnostic-requests",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            vehicleId: selectedVehicleId,
+            complaintText: complaintText.trim(),
+          }),
+        },
+      );
       await refreshWorkspace();
-      setComplaintText('');
+      setComplaintText("");
       startTransition(() => {
         setSelectedRequestIdState(response.requestId);
       });
-      setToast('Diagnostic request submitted.');
+      setToast("Diagnostic request submitted.");
     } finally {
       setBusy(false);
     }
@@ -475,13 +521,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  return <AppModelContext.Provider value={value}>{children}</AppModelContext.Provider>;
+  return (
+    <AppModelContext.Provider value={value}>
+      {children}
+    </AppModelContext.Provider>
+  );
 }
 
 export function useAppModel(): AppModelValue {
   const value = useContext(AppModelContext);
   if (!value) {
-    throw new Error('useAppModel must be used within AppProvider.');
+    throw new Error("useAppModel must be used within AppProvider.");
   }
   return value;
 }

@@ -1,10 +1,10 @@
-export type AuthMode = 'login' | 'register';
+export type AuthMode = "login" | "register";
 
 export interface AuthUser {
   id: string;
   email: string;
   displayName: string;
-  role: 'ADMIN' | 'USER';
+  role: "ADMIN" | "USER";
 }
 
 export interface AuthSession {

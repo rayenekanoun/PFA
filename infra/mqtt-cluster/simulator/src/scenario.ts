@@ -30,7 +30,7 @@ export function buildDiagnosticScenarioOutcome(
   options: ScenarioOptions,
 ): ScenarioOutcome<DiagnosticResponse> {
   const generatedAtIso = generatedAt.toISOString();
-  const { requestId, carId } = command;
+  const { requestId, deviceId, carId } = command;
   const simulate = command.simulate ?? { mode: "success" as const };
 
   if (simulate.mode === "timeout") {
@@ -47,6 +47,7 @@ export function buildDiagnosticScenarioOutcome(
       response: buildDiagnosticErrorResponse({
         requestId,
         planId: command.planId,
+        deviceId,
         carId,
         generatedAt: generatedAtIso,
         code: simulate.errorCode,
@@ -62,6 +63,7 @@ export function buildDiagnosticScenarioOutcome(
       response: buildDiagnosticErrorResponse({
         requestId,
         planId: command.planId,
+        deviceId,
         carId,
         generatedAt: generatedAtIso,
         code: "INVALID_REQUEST",
@@ -80,6 +82,7 @@ export function buildDiagnosticScenarioOutcome(
     response: buildDiagnosticSuccessResponse({
       requestId,
       planId: command.planId,
+      deviceId,
       carId,
       generatedAt: generatedAtIso,
       measurements,
@@ -97,6 +100,7 @@ export function buildCapabilityScenarioOutcome(
     delayMs: 0,
     response: buildCapabilitySuccessResponse({
       requestId: command.requestId,
+      deviceId: command.deviceId,
       carId: command.carId,
       generatedAt: generatedAt.toISOString(),
       supportWindows: command.supportWindows ?? ["0100", "0120", "0140"],

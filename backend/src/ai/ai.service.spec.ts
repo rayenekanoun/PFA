@@ -7,11 +7,13 @@ describe('AiService', () => {
   const providerMock: jest.Mocked<AiProvider> = {
     classifyComplaint: jest.fn(),
     generateReport: jest.fn(),
+    answerFollowUp: jest.fn(),
   };
 
   const stubProviderMock = {
     classifyComplaint: jest.fn(),
     generateReport: jest.fn(),
+    answerFollowUp: jest.fn(),
   };
 
   const configValues: Record<string, unknown> = {

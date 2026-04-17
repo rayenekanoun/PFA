@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@500;600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@500;600&display=swap");
 
 :root {
   --bg: #f4efe7;
@@ -37,10 +37,14 @@ body,
 
 body {
   color: var(--text);
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   background:
     radial-gradient(circle at 6% 2%, rgba(143, 104, 72, 0.09), transparent 22%),
-    radial-gradient(circle at 92% 90%, rgba(143, 104, 72, 0.08), transparent 24%),
+    radial-gradient(
+      circle at 92% 90%,
+      rgba(143, 104, 72, 0.08),
+      transparent 24%
+    ),
     linear-gradient(180deg, #fbf8f4 0%, var(--bg) 100%);
 }
 
@@ -114,14 +118,14 @@ p {
   border-radius: 12px;
   display: grid;
   place-items: center;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: "IBM Plex Sans", sans-serif;
   font-weight: 600;
   border: 1px solid var(--line);
   background: linear-gradient(160deg, #f6e9da, #e9d3bb);
 }
 
 .brand-block h2 {
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: "IBM Plex Sans", sans-serif;
   font-size: 1rem;
 }
 
@@ -196,7 +200,7 @@ p {
 .app-header h1 {
   margin-top: 4px;
   font-size: clamp(1.5rem, 2.6vw, 2.1rem);
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: "IBM Plex Sans", sans-serif;
 }
 
 .header-subtitle {
@@ -295,7 +299,7 @@ p {
 
 .kpi-strip strong {
   font-size: 1.7rem;
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: "IBM Plex Sans", sans-serif;
 }
 
 .panel {
@@ -322,7 +326,7 @@ p {
 
 .panel h2,
 .panel h3 {
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: "IBM Plex Sans", sans-serif;
 }
 
 .activity-list,
@@ -795,7 +799,7 @@ th {
   max-width: 14ch;
   line-height: 1.06;
   font-size: clamp(2rem, 4.8vw, 4.4rem);
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: "IBM Plex Sans", sans-serif;
 }
 
 .auth-intro p {

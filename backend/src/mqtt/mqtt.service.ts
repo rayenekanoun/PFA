@@ -23,6 +23,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
   private connectedPromise: Promise<void> | null = null;
   private readonly pendingDiagnostics = new Map<string, PendingRequest<DiagnosticDeviceResponse>>();
   private readonly pendingCapabilities = new Map<string, PendingRequest<CapabilityDiscoveryResponse>>();
+  private static readonly DIAGNOSTIC_RESPONSE_TOPIC_REGEX =
+    /^devices\/(?<deviceId>[^/]+)\/telemetry\/diagnostic\/response$/;
+  private static readonly CAPABILITY_RESPONSE_TOPIC_REGEX =
+    /^devices\/(?<deviceId>[^/]+)\/telemetry\/capabilities\/response$/;
 
   public constructor(private readonly configService: ConfigService) {}
 
@@ -56,10 +60,11 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     input: PublishDiagnosticCommandInput,
   ): Promise<DiagnosticDeviceResponse> {
     await this.ensureConnected();
-    const topic = `cars/${input.carId}/commands/diagnostic/request`;
+    const topic = `devices/${input.deviceId}/commands/diagnostic/request`;
     const payload = {
       requestId: input.requestId,
       planId: input.planId,
+      deviceId: input.deviceId,
       carId: input.carId,
       type: 'diagnostic',
       correlationId: input.correlationId,
@@ -82,9 +87,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     input: PublishCapabilityDiscoveryInput,
   ): Promise<CapabilityDiscoveryResponse> {
     await this.ensureConnected();
-    const topic = `cars/${input.carId}/commands/capabilities/request`;
+    const topic = `devices/${input.deviceId}/commands/capabilities/request`;
     const payload = {
       requestId: input.requestId,
+      deviceId: input.deviceId,
       carId: input.carId,
       type: 'capability_discovery',
       correlationId: input.correlationId,
@@ -169,8 +175,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     }
 
     await Promise.all([
-      this.subscribe('cars/+/telemetry/diagnostic/response'),
-      this.subscribe('cars/+/telemetry/capabilities/response'),
+      this.subscribe('devices/+/telemetry/diagnostic/response'),
+      this.subscribe('devices/+/telemetry/capabilities/response'),
     ]);
   }
 
@@ -194,10 +200,20 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     try {
       const payload = JSON.parse(payloadText) as unknown;
 
-      if (topic.includes('/telemetry/diagnostic/response')) {
+      const diagnosticTopicDeviceId = this.extractTopicDeviceId(
+        topic,
+        MqttService.DIAGNOSTIC_RESPONSE_TOPIC_REGEX,
+      );
+      if (diagnosticTopicDeviceId) {
         const parsed = diagnosticDeviceResponseSchema.safeParse(payload);
         if (!parsed.success) {
           this.logger.warn(`Ignoring invalid diagnostic response payload on ${topic}.`);
+          return;
+        }
+        if (parsed.data.deviceId !== diagnosticTopicDeviceId) {
+          this.logger.warn(
+            `Ignoring diagnostic response on ${topic} because payload deviceId '${parsed.data.deviceId}' does not match topic deviceId '${diagnosticTopicDeviceId}'.`,
+          );
           return;
         }
 
@@ -213,10 +229,20 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      if (topic.includes('/telemetry/capabilities/response')) {
+      const capabilityTopicDeviceId = this.extractTopicDeviceId(
+        topic,
+        MqttService.CAPABILITY_RESPONSE_TOPIC_REGEX,
+      );
+      if (capabilityTopicDeviceId) {
         const parsed = capabilityDiscoveryResponseSchema.safeParse(payload);
         if (!parsed.success) {
           this.logger.warn(`Ignoring invalid capability response payload on ${topic}.`);
+          return;
+        }
+        if (parsed.data.deviceId !== capabilityTopicDeviceId) {
+          this.logger.warn(
+            `Ignoring capability response on ${topic} because payload deviceId '${parsed.data.deviceId}' does not match topic deviceId '${capabilityTopicDeviceId}'.`,
+          );
           return;
         }
 
@@ -235,6 +261,11 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         `Ignoring unreadable MQTT payload on topic '${topic}': ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  private extractTopicDeviceId(topic: string, regex: RegExp): string | null {
+    const match = topic.match(regex);
+    return match?.groups?.deviceId ?? null;
   }
 
   private publishAndAwait<T>(input: {

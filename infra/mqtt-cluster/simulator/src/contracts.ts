@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const REQUEST_ID_SCHEMA = z.string().min(1).max(128);
+const DEVICE_ID_SCHEMA = z.string().min(1).max(128);
 const CAR_ID_SCHEMA = z.string().min(1).max(128);
 const SIMPLE_ID_SCHEMA = z.string().min(1).max(128);
 
@@ -57,6 +58,7 @@ export const DiagnosticCommandSchema = z
   .object({
     requestId: REQUEST_ID_SCHEMA,
     planId: SIMPLE_ID_SCHEMA.optional(),
+    deviceId: DEVICE_ID_SCHEMA,
     carId: CAR_ID_SCHEMA,
     type: z.literal("diagnostic"),
     correlationId: SIMPLE_ID_SCHEMA.optional(),
@@ -70,6 +72,7 @@ export const DiagnosticCommandSchema = z
 export const CapabilityDiscoveryCommandSchema = z
   .object({
     requestId: REQUEST_ID_SCHEMA,
+    deviceId: DEVICE_ID_SCHEMA,
     carId: CAR_ID_SCHEMA,
     type: z.literal("capability_discovery"),
     correlationId: SIMPLE_ID_SCHEMA.optional(),
@@ -106,6 +109,7 @@ export const DiagnosticDtcSchema = z
 const ResponseBaseSchema = z
   .object({
     requestId: REQUEST_ID_SCHEMA,
+    deviceId: DEVICE_ID_SCHEMA,
     carId: CAR_ID_SCHEMA,
     generatedAt: z.string().datetime({ offset: true }),
     simulated: z.literal(true),
@@ -167,33 +171,34 @@ export type CapabilityResponse = z.output<typeof CapabilityResponseSchema>;
 
 type ParseResult<TCommand> =
   | { ok: true; command: TCommand }
-  | { ok: false; requestId: string; carId: string; reason: string };
+  | { ok: false; requestId: string; deviceId: string; carId: string; reason: string };
 
-export function diagnosticResponseTopicForCar(carId: string): string {
-  return `cars/${carId}/telemetry/diagnostic/response`;
+export function diagnosticResponseTopicForDevice(deviceId: string): string {
+  return `devices/${deviceId}/telemetry/diagnostic/response`;
 }
 
-export function capabilityResponseTopicForCar(carId: string): string {
-  return `cars/${carId}/telemetry/capabilities/response`;
+export function capabilityResponseTopicForDevice(deviceId: string): string {
+  return `devices/${deviceId}/telemetry/capabilities/response`;
 }
 
 export function parseDiagnosticCommandFromPayload(
   payloadText: string,
-  topicCarId: string,
+  topicDeviceId: string,
 ): ParseResult<DiagnosticCommand> {
-  return parseCommandFromPayload(payloadText, topicCarId, DiagnosticCommandSchema);
+  return parseCommandFromPayload(payloadText, topicDeviceId, DiagnosticCommandSchema);
 }
 
 export function parseCapabilityCommandFromPayload(
   payloadText: string,
-  topicCarId: string,
+  topicDeviceId: string,
 ): ParseResult<CapabilityDiscoveryCommand> {
-  return parseCommandFromPayload(payloadText, topicCarId, CapabilityDiscoveryCommandSchema);
+  return parseCommandFromPayload(payloadText, topicDeviceId, CapabilityDiscoveryCommandSchema);
 }
 
 export function buildDiagnosticSuccessResponse(input: {
   requestId: string;
   planId?: string;
+  deviceId: string;
   carId: string;
   generatedAt: string;
   measurements: z.infer<typeof DiagnosticMeasurementSchema>[];
@@ -202,6 +207,7 @@ export function buildDiagnosticSuccessResponse(input: {
   return DiagnosticSuccessResponseSchema.parse({
     requestId: input.requestId,
     planId: input.planId,
+    deviceId: input.deviceId,
     carId: input.carId,
     status: "ok",
     generatedAt: input.generatedAt,
@@ -214,6 +220,7 @@ export function buildDiagnosticSuccessResponse(input: {
 export function buildDiagnosticErrorResponse(input: {
   requestId: string;
   planId?: string;
+  deviceId: string;
   carId: string;
   generatedAt: string;
   code: z.infer<typeof ResponseErrorCodeSchema>;
@@ -222,6 +229,7 @@ export function buildDiagnosticErrorResponse(input: {
   return DiagnosticErrorResponseSchema.parse({
     requestId: input.requestId,
     planId: input.planId,
+    deviceId: input.deviceId,
     carId: input.carId,
     status: "error",
     generatedAt: input.generatedAt,
@@ -237,6 +245,7 @@ export function buildDiagnosticErrorResponse(input: {
 
 export function buildCapabilitySuccessResponse(input: {
   requestId: string;
+  deviceId: string;
   carId: string;
   generatedAt: string;
   supportWindows: string[];
@@ -244,6 +253,7 @@ export function buildCapabilitySuccessResponse(input: {
 }): z.infer<typeof CapabilitySuccessResponseSchema> {
   return CapabilitySuccessResponseSchema.parse({
     requestId: input.requestId,
+    deviceId: input.deviceId,
     carId: input.carId,
     status: "ok",
     generatedAt: input.generatedAt,
@@ -255,6 +265,7 @@ export function buildCapabilitySuccessResponse(input: {
 
 export function buildCapabilityErrorResponse(input: {
   requestId: string;
+  deviceId: string;
   carId: string;
   generatedAt: string;
   supportWindows: string[];
@@ -263,6 +274,7 @@ export function buildCapabilityErrorResponse(input: {
 }): z.infer<typeof CapabilityErrorResponseSchema> {
   return CapabilityErrorResponseSchema.parse({
     requestId: input.requestId,
+    deviceId: input.deviceId,
     carId: input.carId,
     status: "error",
     generatedAt: input.generatedAt,
@@ -276,9 +288,9 @@ export function buildCapabilityErrorResponse(input: {
   });
 }
 
-function parseCommandFromPayload<TCommand extends { carId: string }>(
+function parseCommandFromPayload<TCommand extends { deviceId: string; carId: string }>(
   payloadText: string,
-  topicCarId: string,
+  topicDeviceId: string,
   schema: z.ZodType<TCommand>,
 ): ParseResult<TCommand> {
   let rawPayload: unknown;
@@ -288,20 +300,23 @@ function parseCommandFromPayload<TCommand extends { carId: string }>(
     return {
       ok: false,
       requestId: `invalid-${Date.now()}`,
-      carId: topicCarId,
+      deviceId: topicDeviceId,
+      carId: "unknown-car",
       reason: "Payload is not valid JSON.",
     };
   }
 
   const requestId = extractStringValue(rawPayload, "requestId") ?? `invalid-${Date.now()}`;
+  const payloadDeviceId = extractStringValue(rawPayload, "deviceId");
   const payloadCarId = extractStringValue(rawPayload, "carId");
 
-  if (typeof payloadCarId === "string" && payloadCarId !== topicCarId) {
+  if (typeof payloadDeviceId === "string" && payloadDeviceId !== topicDeviceId) {
     return {
       ok: false,
       requestId,
-      carId: topicCarId,
-      reason: `Payload carId '${payloadCarId}' does not match topic carId '${topicCarId}'.`,
+      deviceId: topicDeviceId,
+      carId: payloadCarId ?? "unknown-car",
+      reason: `Payload deviceId '${payloadDeviceId}' does not match topic deviceId '${topicDeviceId}'.`,
     };
   }
 
@@ -310,17 +325,9 @@ function parseCommandFromPayload<TCommand extends { carId: string }>(
     return {
       ok: false,
       requestId,
-      carId: topicCarId,
+      deviceId: topicDeviceId,
+      carId: payloadCarId ?? "unknown-car",
       reason: formatZodIssues(parsed.error.issues),
-    };
-  }
-
-  if (parsed.data.carId !== topicCarId) {
-    return {
-      ok: false,
-      requestId,
-      carId: topicCarId,
-      reason: `Payload carId '${parsed.data.carId}' does not match topic carId '${topicCarId}'.`,
     };
   }
 
